@@ -1,0 +1,40 @@
+services:
+  database:
+    ports:
+      - "${DATABASE_PUBLISHED_PORT:-5432}:5432"
+
+  backend:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+      LOG_FORMAT: pretty
+      LOG_LEVEL: debug
+    command: ["bun", "run", "start:dev"]
+    volumes:
+      - ./errortracer-backend:/usr/src/app
+      - backend_node_modules:/usr/src/app/node_modules
+    stdin_open: true
+    tty: true
+
+  frontend:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4973}
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    command: ["bun", "run", "dev", "--hostname", "0.0.0.0"]
+    volumes:
+      - ./errortracer-frontend:/usr/src/app
+      - frontend_node_modules:/usr/src/app/node_modules
+      - frontend_next:/usr/src/app/.next
+    stdin_open: true
+    tty: true
+
+volumes:
+  backend_node_modules:
+  frontend_node_modules:
+  frontend_next:
+

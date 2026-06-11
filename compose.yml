@@ -1,0 +1,83 @@
+name: errortracer
+
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DATABASE_PUBLISHED_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - errortracer
+
+  backend:
+    build:
+      context: ./errortracer-backend
+      dockerfile: dockerfile
+      target: production
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      APP_KEY_GENERATOR: ${APP_KEY_GENERATOR}
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET}
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      APP_PORT: ${APP_PORT:-4973}
+      ORIGIN: ${ORIGIN:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_TO_FILE: ${LOG_TO_FILE:-false}
+      LOG_DIR: ${LOG_DIR:-logs}
+      LOG_ERROR_FILE: ${LOG_ERROR_FILE:-error.log}
+      LOG_MAX_SIZE: ${LOG_MAX_SIZE:-20m}
+      LOG_MAX_FILES: ${LOG_MAX_FILES:-14d}
+    ports:
+      - "${BACKEND_PORT:-4973}:${APP_PORT:-4973}"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - errortracer
+
+  frontend:
+    build:
+      context: ./errortracer-frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4973}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4973}
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    networks:
+      - errortracer
+
+volumes:
+  postgres_data:
+
+networks:
+  errortracer:
+    driver: bridge
