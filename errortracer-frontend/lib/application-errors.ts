@@ -65,6 +65,10 @@ interface FetchApplicationErrorsOptions {
   environment?: string;
 }
 
+interface FetchApplicationsRecentErrorsOptions {
+  limit: number;
+}
+
 export async function fetchApplicationErrors({
   appId,
   limit,
@@ -95,6 +99,20 @@ export async function fetchApplicationErrors({
 
   const data = await apiFetch<unknown>(
     `/v0.1/applications/${appId}/errors?${params.toString()}`,
+  );
+
+  return normalizeApplicationErrorsPage(data);
+}
+
+export async function fetchApplicationsRecentErrors({
+  limit,
+}: FetchApplicationsRecentErrorsOptions): Promise<ApplicationErrorsPage> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+  });
+
+  const data = await apiFetch<unknown>(
+    `/v0.1/applications/errors/recent?${params.toString()}`,
   );
 
   return normalizeApplicationErrorsPage(data);
@@ -192,9 +210,12 @@ function normalizeApplicationErrorsPage(data: unknown): ApplicationErrorsPage {
     null;
   const hasNextPage =
     getBoolean(record.hasNextPage) ??
+    getBoolean(record.hasMore) ??
     getBoolean(record.has_more) ??
     getBoolean(pageInfo.hasNextPage) ??
+    getBoolean(pageInfo.hasMore) ??
     getBoolean(pagination.hasNextPage) ??
+    getBoolean(pagination.hasMore) ??
     Boolean(nextCursor);
 
   return {
@@ -271,6 +292,7 @@ function toApplicationError(raw: unknown): ApplicationError {
       getString(application.id),
     error:
       getString(error.error) ??
+      getString(error.errorName) ??
       getString(error.message) ??
       getString(error.name) ??
       "Unknown error",

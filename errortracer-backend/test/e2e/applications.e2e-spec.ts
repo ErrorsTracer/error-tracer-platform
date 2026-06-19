@@ -471,6 +471,88 @@ describe('Applications API (e2e)', () => {
       .expect(201);
 
     await request(context.httpServer)
+      .post('/v0.1/errors/ingest')
+      .set('X-ErrorTracer-Key', secondApplication.appKey)
+      .send({
+        projectId: secondApplication.id,
+        message: 'NamedErrorSmokeFromSecondApp',
+        name: 'RepeatedTypeErrorSmoke',
+        level: 'error',
+        framework: 'node',
+        runtime: 'server',
+      })
+      .expect(201);
+
+    await request(context.httpServer)
+      .post('/v0.1/errors/ingest')
+      .set('X-ErrorTracer-Key', secondApplication.appKey)
+      .send({
+        projectId: secondApplication.id,
+        message: 'NamedWarningSmokeFromSecondApp',
+        name: 'RepeatedTypeErrorSmoke',
+        level: 'warning',
+        framework: 'react',
+        runtime: 'browser',
+      })
+      .expect(201);
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/recent')
+      .expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/recent')
+      .set(authHeader(member.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          data: [],
+          pageInfo: {
+            limit: 25,
+            hasMore: false,
+          },
+        });
+      });
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/recent?limit=10')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.pageInfo).toEqual({
+          limit: 10,
+          hasMore: false,
+        });
+        expect(body.data).toEqual(
+          expect.arrayContaining([
+            {
+              errorName: 'RepeatedTypeErrorSmoke',
+              level: 'error',
+              client: 'node',
+              runtime: 'server',
+              repeated: 3,
+              lastSeenAt: expect.any(String),
+            },
+            {
+              errorName: 'RepeatedTypeErrorSmoke',
+              level: 'warning',
+              client: 'react',
+              runtime: 'browser',
+              repeated: 1,
+              lastSeenAt: expect.any(String),
+            },
+          ]),
+        );
+        expect(
+          body.data.filter(
+            (item: { errorName: string }) =>
+              item.errorName === 'RepeatedTypeErrorSmoke',
+          ),
+        ).toHaveLength(2);
+        expect(typeof body.data[0].repeated).toBe('number');
+      });
+
+    await request(context.httpServer)
       .get('/v0.1/applications/errors/severity-distribution')
       .expect(401);
 
@@ -492,7 +574,7 @@ describe('Applications API (e2e)', () => {
       .expect(({ body }) => {
         expect(body).toEqual({
           criticalErrorsCount: 2,
-          totalErrorsCount: 7,
+          totalErrorsCount: 9,
         });
       });
 

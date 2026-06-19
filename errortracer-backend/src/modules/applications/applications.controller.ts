@@ -55,6 +55,17 @@ export class ApplicationsController {
     return await this.appService.getMyApplicationsErrorsReport(req.user);
   }
 
+  @Get('/errors/recent')
+  async getMyApplicationsRecentErrors(
+    @Query() query: GetApplicationErrorsDto,
+    @Req() req: any,
+  ) {
+    return await this.appService.getMyApplicationsRecentErrors(
+      query,
+      req.user,
+    );
+  }
+
   @Get('/:id')
   async getAppInfo(@Param() data: any, @Req() req: any) {
     return await this.appService.getAppInfo(data, req.user);

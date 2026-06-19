@@ -12,9 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatRelativeTime, getSeverityBg, mockErrors } from "@/lib/mock-data";
+import { formatRelativeTime, getSeverityBg } from "@/lib/mock-data";
 import {
   type ApplicationError,
+  fetchApplicationsRecentErrors,
   fetchApplicationRecentErrors,
 } from "@/lib/application-errors";
 import { cn, formatCount } from "@/lib/utils";
@@ -28,24 +29,18 @@ export function RecentErrorsTable({
   limit = 6,
   appId,
 }: RecentErrorsTableProps) {
-  const [errors, setErrors] = useState<ApplicationError[]>(
-    mockErrors.slice(0, limit).map(toApplicationErrorFallback),
-  );
-  const [loading, setLoading] = useState(Boolean(appId));
+  const [errors, setErrors] = useState<ApplicationError[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function loadErrors(shouldUpdate = () => true) {
-    if (!appId) {
-      setErrors(mockErrors.slice(0, limit).map(toApplicationErrorFallback));
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      const data = await fetchApplicationRecentErrors({ appId, limit });
+      const data = appId
+        ? await fetchApplicationRecentErrors({ appId, limit })
+        : await fetchApplicationsRecentErrors({ limit });
 
       if (shouldUpdate()) {
         setErrors(data.errors);
@@ -145,8 +140,13 @@ export function RecentErrorsTable({
               </TableCell>
             </TableRow>
           ) : (
-            errors.map((error) => (
-              <TableRow key={error.id} className="cursor-pointer">
+            errors.map((error, index) => (
+              <TableRow
+                key={getErrorRowKey(error, index)}
+                className={cn(
+                  canOpenErrorDetails(error, appId) && "cursor-pointer",
+                )}
+              >
                 <TableCell>
                   <span
                     className={cn(
@@ -158,14 +158,20 @@ export function RecentErrorsTable({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <Link
-                    href={getErrorDetailsHref(error, appId)}
-                    className="group flex flex-col"
-                  >
-                    <span className="max-w-xs truncate font-mono text-xs text-foreground group-hover:text-primary">
+                  {canOpenErrorDetails(error, appId) ? (
+                    <Link
+                      href={getErrorDetailsHref(error, appId)}
+                      className="group flex flex-col"
+                    >
+                      <span className="max-w-xs truncate font-mono text-xs text-foreground group-hover:text-primary">
+                        {error.error}
+                      </span>
+                    </Link>
+                  ) : (
+                    <span className="block max-w-xs truncate font-mono text-xs text-foreground">
                       {error.error}
                     </span>
-                  </Link>
+                  )}
                 </TableCell>
                 <TableCell>
                   <span className="text-xs text-muted-foreground">
@@ -198,44 +204,6 @@ export function RecentErrorsTable({
   );
 }
 
-function toApplicationErrorFallback(
-  error: (typeof mockErrors)[number],
-): ApplicationError {
-  return {
-    id: error.id,
-    appId: error.appId,
-    error: error.message,
-    stack: error.stack,
-    framework: error.framework,
-    environment: error.environment,
-    language: error.language,
-    runtime: error.runtime,
-    level: error.severity,
-    name: null,
-    fingerprint: null,
-    handled: null,
-    timestamp: error.lastSeen,
-    release: null,
-    url: null,
-    transaction: null,
-    user: null,
-    request: null,
-    tags: error.tags,
-    extra: {},
-    breadcrumbs: null,
-    contexts: null,
-    additionalData: null,
-    href: null,
-    host: null,
-    client: error.appName,
-    repeated: error.occurrences,
-    clientAgent: null,
-    clientPlatform: null,
-    createdAt: error.firstSeen,
-    lastSeenAt: error.lastSeen,
-  };
-}
-
 function getErrorDetailsHref(error: ApplicationError, appId?: string) {
   const applicationId = appId ?? error.appId;
   const params = applicationId
@@ -243,4 +211,24 @@ function getErrorDetailsHref(error: ApplicationError, appId?: string) {
     : "";
 
   return `/dashboard/errors/${error.id}${params}`;
+}
+
+function canOpenErrorDetails(error: ApplicationError, appId?: string) {
+  return Boolean(error.id && (appId || error.appId));
+}
+
+function getErrorRowKey(error: ApplicationError, index: number) {
+  return (
+    error.id ||
+    [
+      error.error,
+      error.level,
+      error.client,
+      error.runtime,
+      error.lastSeenAt,
+      index,
+    ]
+      .filter(Boolean)
+      .join(":")
+  );
 }

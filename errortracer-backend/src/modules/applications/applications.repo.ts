@@ -100,6 +100,11 @@ type GetRecentErrorsByApplicationIdData = {
   limit: number;
 };
 
+type GetRecentErrorsByUserApplicationsData = {
+  userId: string;
+  limit: number;
+};
+
 type GetTopAffectedRoutesByApplicationIdData = {
   applicationId: string;
   limit: number;
@@ -107,7 +112,17 @@ type GetTopAffectedRoutesByApplicationIdData = {
 
 type RecentErrorGroup = {
   errorName: string;
+  level: string | null;
   repeated: number | string;
+  lastSeenAt: Date | string;
+};
+
+type UserApplicationRecentError = {
+  errorName: string;
+  level: string | null;
+  client: string | null;
+  runtime: string | null;
+  repeated: number;
   lastSeenAt: Date | string;
 };
 
@@ -391,12 +406,7 @@ export class ApplicationsRepository {
   }
 
   async getErrorsSeverityDistributionByUserId(userId: string) {
-    const applications = await this.appsRepository
-      .scope({ method: ['associatedWithUser', userId] })
-      .findAll({
-        attributes: ['id'],
-      });
-    const applicationIds = applications.map((application) => application.id);
+    const applicationIds = await this.getApplicationIdsForUser(userId);
 
     if (applicationIds.length === 0) {
       return {
@@ -579,6 +589,63 @@ export class ApplicationsRepository {
     return errors.filter((error) => error !== null);
   }
 
+  async getRecentErrorsByUserApplications({
+    userId,
+    limit,
+  }: GetRecentErrorsByUserApplicationsData): Promise<
+    UserApplicationRecentError[]
+  > {
+    const applicationIds = await this.getApplicationIdsForUser(userId);
+
+    if (applicationIds.length === 0) {
+      return [];
+    }
+
+    const errorName = this.getErrorNameExpression();
+    const groups = (await this.errorsRepository.findAll({
+      attributes: [
+        [errorName, 'errorName'],
+        'level',
+        [fn('COUNT', col('id')), 'repeated'],
+        [fn('MAX', col('createdAt')), 'lastSeenAt'],
+      ],
+      where: { applicationId: { [Op.in]: applicationIds } },
+      group: [errorName, 'level'],
+      order: [[fn('MAX', col('createdAt')), 'DESC']],
+      limit,
+      raw: true,
+    })) as unknown as RecentErrorGroup[];
+
+    return await Promise.all(
+      groups.map(async (group) => {
+        const latestError = await this.errorsRepository.findOne({
+          where: {
+            applicationId: { [Op.in]: applicationIds },
+            level: group.level,
+            [Op.and]: sequelizeWhere(
+              this.getErrorNameExpression(),
+              group.errorName,
+            ),
+          },
+          order: [
+            ['createdAt', 'DESC'],
+            ['id', 'DESC'],
+          ],
+          attributes: ['client', 'runtime'],
+        });
+
+        return {
+          errorName: group.errorName,
+          level: group.level,
+          client: latestError?.client ?? null,
+          runtime: latestError?.runtime ?? null,
+          repeated: Number(group.repeated),
+          lastSeenAt: group.lastSeenAt,
+        };
+      }),
+    );
+  }
+
   async getWeeklyErrorReportByApplicationId(applicationId: string) {
     return await this.getWeeklyErrorReport({
       applicationId,
@@ -716,6 +783,16 @@ export class ApplicationsRepository {
 
   private getErrorNameExpression() {
     return fn('COALESCE', col('name'), col('error'));
+  }
+
+  private async getApplicationIdsForUser(userId: string) {
+    const applications = await this.appsRepository
+      .scope({ method: ['associatedWithUser', userId] })
+      .findAll({
+        attributes: ['id'],
+      });
+
+    return applications.map((application) => application.id);
   }
 
   private getAffectedRouteExpression() {

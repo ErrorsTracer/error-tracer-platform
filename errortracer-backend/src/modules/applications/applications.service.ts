@@ -121,6 +121,28 @@ export class ApplicationsService {
     };
   }
 
+  async getMyApplicationsRecentErrors(
+    query: Pick<GetApplicationErrorsDto, 'limit'>,
+    user,
+  ) {
+    const limit = this.getErrorsPageLimit(query.limit);
+    const errors =
+      await this.applicationsRepository.getRecentErrorsByUserApplications({
+        userId: user.id,
+        limit: limit + 1,
+      });
+    const hasMore = errors.length > limit;
+    const data = hasMore ? errors.slice(0, limit) : errors;
+
+    return {
+      data,
+      pageInfo: {
+        limit,
+        hasMore,
+      },
+    };
+  }
+
   async getApplicationErrorDetails(params, user) {
     const application = await this.applicationsRepository.getAppByIdForUser({
       applicationId: params.id,
