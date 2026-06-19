@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+echo "Running pre-commit verification..."
+echo "Docker must be running so Testcontainers can start PostgreSQL for e2e tests."
+
+bun run lint
+bun run test:e2e
+
+echo "Pre-commit verification passed."
