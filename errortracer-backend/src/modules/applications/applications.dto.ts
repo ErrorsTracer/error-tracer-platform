@@ -2,12 +2,14 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsEmail,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
 } from 'class-validator';
+import { ERROR_LEVELS } from '../errors/errors.dto';
 
 export class CreateAppDto {
   @IsNotEmpty()
@@ -40,6 +42,30 @@ export class GetApplicationErrorsDto {
   @IsOptional()
   @IsString()
   declare cursor?: string;
+}
+
+export class GetUserApplicationErrorsDto {
+  @IsOptional()
+  @Matches(/^\d+$/)
+  declare limit?: string;
+
+  @IsOptional()
+  @IsString()
+  declare cursor?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(ERROR_LEVELS)
+  declare level?: string;
+
+  @IsOptional()
+  @IsUUID()
+  declare applicationId?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['lastOccurred', 'topRepeated'])
+  declare sort?: 'lastOccurred' | 'topRepeated';
 }
 
 export class GetApplicationTopAffectedRoutesDto {

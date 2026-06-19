@@ -17,6 +17,7 @@ import { TransactionManager } from '../../helpers/transaction.helper';
 import {
   GetApplicationErrorsDto,
   GetApplicationTopAffectedRoutesDto,
+  GetUserApplicationErrorsDto,
 } from './applications.dto';
 import { UsageRepository } from '../usage/usage.repo';
 
@@ -27,6 +28,15 @@ const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 type ErrorPaginationCursor = {
   createdAt: string;
   id: string;
+};
+
+type GroupedErrorPaginationCursor = {
+  sort: 'lastOccurred' | 'topRepeated';
+  lastOccurredAt: string;
+  repeated: number;
+  applicationId: string;
+  errorName: string;
+  level: string | null;
 };
 
 @Injectable()
@@ -117,6 +127,49 @@ export class ApplicationsService {
       pageInfo: {
         limit,
         hasMore,
+      },
+    };
+  }
+
+  async getMyApplicationsErrors(query: GetUserApplicationErrorsDto, user) {
+    const limit = this.getErrorsPageLimit(query.limit);
+    const level = query.level ?? 'critical';
+    const sort = query.sort ?? 'lastOccurred';
+    const cursor = this.decodeGroupedErrorsCursor(query.cursor, sort);
+
+    if (query.applicationId) {
+      const application = await this.applicationsRepository.getAppByIdForUser({
+        applicationId: query.applicationId,
+        userId: user.id,
+      });
+
+      if (!application) {
+        throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+      }
+    }
+
+    const errors =
+      await this.applicationsRepository.getGroupedErrorsByUserApplications({
+        userId: user.id,
+        applicationId: query.applicationId,
+        level,
+        sort,
+        limit: limit + 1,
+        cursor,
+      });
+    const hasMore = errors.length > limit;
+    const data = hasMore ? errors.slice(0, limit) : errors;
+    const nextCursor =
+      hasMore && data.length > 0
+        ? this.encodeGroupedErrorsCursor(data[data.length - 1], sort)
+        : null;
+
+    return {
+      data,
+      pageInfo: {
+        limit,
+        hasMore,
+        nextCursor,
       },
     };
   }
@@ -611,6 +664,72 @@ export class ApplicationsService {
       JSON.stringify({
         createdAt: error.createdAt.toISOString(),
         id: error.id,
+      }),
+    ).toString('base64url');
+  }
+
+  private decodeGroupedErrorsCursor(
+    cursor: string | undefined,
+    sort: 'lastOccurred' | 'topRepeated',
+  ) {
+    if (!cursor) {
+      return undefined;
+    }
+
+    try {
+      const decoded = JSON.parse(
+        Buffer.from(cursor, 'base64url').toString('utf8'),
+      ) as GroupedErrorPaginationCursor;
+      const lastOccurredAt = new Date(decoded.lastOccurredAt);
+
+      if (
+        decoded.sort !== sort ||
+        !Number.isInteger(decoded.repeated) ||
+        decoded.repeated < 0 ||
+        !decoded.applicationId ||
+        !decoded.errorName ||
+        Number.isNaN(lastOccurredAt.getTime()) ||
+        lastOccurredAt.toISOString() !== decoded.lastOccurredAt
+      ) {
+        throw new Error('Invalid grouped errors cursor');
+      }
+
+      return {
+        lastOccurredAt,
+        repeated: decoded.repeated,
+        applicationId: decoded.applicationId,
+        errorName: decoded.errorName,
+        level: decoded.level,
+      };
+    } catch {
+      throw new BadRequestException(ERROR_KEYS.VALIDATION_FAILED);
+    }
+  }
+
+  private encodeGroupedErrorsCursor(
+    error: {
+      lastOccurredAt: Date | string;
+      repeated: number;
+      applicationId: string;
+      errorName: string;
+      level: string | null;
+    },
+    sort: 'lastOccurred' | 'topRepeated',
+  ) {
+    const lastOccurredAt = new Date(error.lastOccurredAt);
+
+    if (Number.isNaN(lastOccurredAt.getTime())) {
+      throw new BadRequestException(ERROR_KEYS.VALIDATION_FAILED);
+    }
+
+    return Buffer.from(
+      JSON.stringify({
+        sort,
+        lastOccurredAt: lastOccurredAt.toISOString(),
+        repeated: error.repeated,
+        applicationId: error.applicationId,
+        errorName: error.errorName,
+        level: error.level,
       }),
     ).toString('base64url');
   }

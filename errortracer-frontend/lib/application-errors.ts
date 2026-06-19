@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api-client";
 export interface ApplicationError {
   id: string;
   appId: string | null;
+  applicationName: string | null;
   error: string;
   stack: string | null;
   framework: string;
@@ -31,6 +32,7 @@ export interface ApplicationError {
   clientAgent: string | null;
   clientPlatform: string | null;
   createdAt: string | null;
+  lastOccurredAt: string | null;
   lastSeenAt: string | null;
 }
 
@@ -67,6 +69,14 @@ interface FetchApplicationErrorsOptions {
 
 interface FetchApplicationsRecentErrorsOptions {
   limit: number;
+}
+
+interface FetchUserApplicationErrorsOptions {
+  limit: number;
+  cursor?: string | null;
+  level?: string;
+  applicationId?: string | null;
+  sort?: "lastOccurred" | "topRepeated";
 }
 
 export async function fetchApplicationErrors({
@@ -113,6 +123,34 @@ export async function fetchApplicationsRecentErrors({
 
   const data = await apiFetch<unknown>(
     `/v0.1/applications/errors/recent?${params.toString()}`,
+  );
+
+  return normalizeApplicationErrorsPage(data);
+}
+
+export async function fetchUserApplicationErrors({
+  limit,
+  cursor,
+  level = "critical",
+  applicationId,
+  sort = "lastOccurred",
+}: FetchUserApplicationErrorsOptions): Promise<ApplicationErrorsPage> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    level,
+    sort,
+  });
+
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+
+  if (applicationId) {
+    params.set("applicationId", applicationId);
+  }
+
+  const data = await apiFetch<unknown>(
+    `/v0.1/applications/errors?${params.toString()}`,
   );
 
   return normalizeApplicationErrorsPage(data);
@@ -290,6 +328,10 @@ function toApplicationError(raw: unknown): ApplicationError {
       getString(error.appId) ??
       getString(error.applicationId) ??
       getString(application.id),
+    applicationName:
+      getString(error.applicationName) ??
+      getString(error.appName) ??
+      getString(application.name),
     error:
       getString(error.error) ??
       getString(error.errorName) ??
@@ -327,9 +369,11 @@ function toApplicationError(raw: unknown): ApplicationError {
     clientAgent: getString(error.clientAgent),
     clientPlatform: getString(error.clientPlatform),
     createdAt: getString(error.createdAt),
+    lastOccurredAt: getString(error.lastOccurredAt),
     lastSeenAt:
       getString(error.lastSeenAt) ??
       getString(error.last_seen_at) ??
+      getString(error.lastOccurredAt) ??
       getString(error.createdAt) ??
       getString(error.timestamp),
   };

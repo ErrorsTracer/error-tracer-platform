@@ -16,6 +16,7 @@ import {
   CreateAppDto,
   GetApplicationErrorsDto,
   GetApplicationTopAffectedRoutesDto,
+  GetUserApplicationErrorsDto,
   InvitePeopleDto,
 } from './applications.dto';
 import { UnGuard } from '../auth/auth.decorator';
@@ -53,6 +54,14 @@ export class ApplicationsController {
   @Get('/errors/report')
   async getMyApplicationsErrorsReport(@Req() req: any) {
     return await this.appService.getMyApplicationsErrorsReport(req.user);
+  }
+
+  @Get('/errors')
+  async getMyApplicationsErrors(
+    @Query() query: GetUserApplicationErrorsDto,
+    @Req() req: any,
+  ) {
+    return await this.appService.getMyApplicationsErrors(query, req.user);
   }
 
   @Get('/errors/recent')

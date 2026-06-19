@@ -552,6 +552,133 @@ describe('Applications API (e2e)', () => {
         expect(typeof body.data[0].repeated).toBe('number');
       });
 
+    await request(context.httpServer).get('/v0.1/applications/errors').expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors')
+      .set(authHeader(member.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          data: [],
+          pageInfo: {
+            page: 1,
+            limit: 25,
+            hasMore: false,
+            nextPage: null,
+          },
+        });
+      });
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors?limit=101')
+      .set(authHeader(owner.accessToken))
+      .expect(400);
+
+    await request(context.httpServer)
+      .get(
+        `/v0.1/applications/errors?applicationId=${secondApplication.id}&level=error&sort=topRepeated&limit=10`,
+      )
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.pageInfo).toEqual({
+          page: 1,
+          limit: 10,
+          hasMore: false,
+          nextPage: null,
+        });
+        expect(body.data).toEqual(
+          expect.arrayContaining([
+            {
+              id: expect.any(String),
+              errorName: 'RepeatedTypeErrorSmoke',
+              level: 'error',
+              client: 'node',
+              runtime: 'server',
+              applicationId: secondApplication.id,
+              applicationName: secondApplication.name,
+              repeated: 1,
+              lastOccurredAt: expect.any(String),
+            },
+            expect.objectContaining({
+              errorName: 'SecondAppNormalErrorSmoke',
+              level: 'error',
+              applicationId: secondApplication.id,
+              repeated: 1,
+            }),
+          ]),
+        );
+        expect(
+          body.data.every(
+            (item: { applicationId: string; level: string }) =>
+              item.applicationId === secondApplication.id &&
+              item.level === 'error',
+          ),
+        ).toBe(true);
+      });
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors?level=error&sort=topRepeated&limit=2')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.pageInfo).toEqual({
+          page: 1,
+          limit: 2,
+          hasMore: true,
+          nextPage: 2,
+        });
+        expect(body.data[0]).toEqual(
+          expect.objectContaining({
+            errorName: 'RepeatedTypeErrorSmoke',
+            level: 'error',
+            applicationId: application.id,
+            repeated: 2,
+          }),
+        );
+      });
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors?level=error&sort=topRepeated&limit=2&page=2')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.pageInfo).toEqual({
+          page: 2,
+          limit: 2,
+          hasMore: false,
+          nextPage: null,
+        });
+        expect(body.data).toHaveLength(2);
+      });
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors?sort=lastOccurred&limit=10')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        const repeatedErrorGroups = body.data.filter(
+          (item: { errorName: string; applicationId: string; level: string }) =>
+            item.errorName === 'RepeatedTypeErrorSmoke' &&
+            item.applicationId === application.id &&
+            item.level === 'error',
+        );
+        expect(repeatedErrorGroups).toHaveLength(1);
+        expect(repeatedErrorGroups[0]).toEqual(
+          expect.objectContaining({
+            repeated: 2,
+          }),
+        );
+      });
+
+    await request(context.httpServer)
+      .get(
+        '/v0.1/applications/errors?applicationId=00000000-0000-0000-0000-000000000000',
+      )
+      .set(authHeader(owner.accessToken))
+      .expect(404);
+
     await request(context.httpServer)
       .get('/v0.1/applications/errors/severity-distribution')
       .expect(401);

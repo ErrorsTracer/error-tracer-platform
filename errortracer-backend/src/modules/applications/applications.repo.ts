@@ -5,6 +5,7 @@ import {
   fn,
   literal,
   Op,
+  QueryTypes,
   Transaction,
   where as sequelizeWhere,
 } from 'sequelize';
@@ -105,6 +106,23 @@ type GetRecentErrorsByUserApplicationsData = {
   limit: number;
 };
 
+type GetGroupedErrorsByUserApplicationsData = {
+  userId: string;
+  applicationId?: string;
+  level?: string;
+  sort: 'lastOccurred' | 'topRepeated';
+  limit: number;
+  cursor?: GroupedUserApplicationErrorsCursor;
+};
+
+type GroupedUserApplicationErrorsCursor = {
+  lastOccurredAt: Date;
+  repeated: number;
+  applicationId: string;
+  errorName: string;
+  level: string | null;
+};
+
 type GetTopAffectedRoutesByApplicationIdData = {
   applicationId: string;
   limit: number;
@@ -124,6 +142,26 @@ type UserApplicationRecentError = {
   runtime: string | null;
   repeated: number;
   lastSeenAt: Date | string;
+};
+
+type GroupedUserApplicationErrorGroup = {
+  applicationId: string;
+  errorName: string;
+  level: string | null;
+  repeated: number | string;
+  lastOccurredAt: Date | string;
+};
+
+type UserApplicationGroupedError = {
+  id: string | null;
+  errorName: string;
+  level: string | null;
+  client: string | null;
+  runtime: string | null;
+  applicationId: string;
+  applicationName: string | null;
+  repeated: number;
+  lastOccurredAt: Date | string;
 };
 
 type TopAffectedRouteRow = {
@@ -646,6 +684,100 @@ export class ApplicationsRepository {
     );
   }
 
+  async getGroupedErrorsByUserApplications({
+    userId,
+    applicationId,
+    level,
+    sort,
+    limit,
+    cursor,
+  }: GetGroupedErrorsByUserApplicationsData): Promise<
+    UserApplicationGroupedError[]
+  > {
+    const applicationIds = applicationId
+      ? [applicationId]
+      : await this.getApplicationIdsForUser(userId);
+
+    if (applicationIds.length === 0) {
+      return [];
+    }
+
+    const cursorWhere = this.getGroupedErrorsCursorWhere(sort, Boolean(cursor));
+    const orderBy =
+      sort === 'topRepeated'
+        ? `"repeated" DESC, "lastOccurredAt" DESC, "applicationId" ASC, "errorName" ASC, COALESCE("level", '') ASC`
+        : `"lastOccurredAt" DESC, "repeated" DESC, "applicationId" ASC, "errorName" ASC, COALESCE("level", '') ASC`;
+
+    const rows =
+      await this.errorsRepository.sequelize!.query<UserApplicationGroupedError>(
+        `
+          WITH grouped AS (
+            SELECT
+              "Errors"."applicationId" AS "applicationId",
+              COALESCE("Errors"."name", "Errors"."error") AS "errorName",
+              "Errors"."level" AS "level",
+              COUNT("Errors"."id")::int AS "repeated",
+              MAX("Errors"."createdAt") AS "lastOccurredAt"
+            FROM "errors-logs" AS "Errors"
+            WHERE
+              "Errors"."applicationId" IN (:applicationIds)
+              AND (:level::text IS NULL OR "Errors"."level" = :level)
+            GROUP BY
+              "Errors"."applicationId",
+              COALESCE("Errors"."name", "Errors"."error"),
+              "Errors"."level"
+          )
+          SELECT
+            grouped."applicationId",
+            grouped."errorName",
+            grouped."level",
+            grouped."repeated",
+            grouped."lastOccurredAt",
+            latest."id",
+            latest."client",
+            latest."runtime",
+            application."name" AS "applicationName"
+          FROM grouped
+          JOIN "applications" AS application
+            ON application."id" = grouped."applicationId"
+          LEFT JOIN LATERAL (
+            SELECT
+              latest."id",
+              latest."client",
+              latest."runtime"
+            FROM "errors-logs" AS latest
+            WHERE
+              latest."applicationId" = grouped."applicationId"
+              AND latest."level" IS NOT DISTINCT FROM grouped."level"
+              AND COALESCE(latest."name", latest."error") = grouped."errorName"
+            ORDER BY latest."createdAt" DESC, latest."id" DESC
+            LIMIT 1
+          ) AS latest ON true
+          ${cursorWhere}
+          ORDER BY ${orderBy}
+          LIMIT :limit
+        `,
+        {
+          type: QueryTypes.SELECT,
+          replacements: {
+            applicationIds,
+            level: level ?? null,
+            limit,
+            cursorRepeated: cursor?.repeated ?? null,
+            cursorLastOccurredAt: cursor?.lastOccurredAt ?? null,
+            cursorApplicationId: cursor?.applicationId ?? null,
+            cursorErrorName: cursor?.errorName ?? null,
+            cursorLevel: cursor?.level ?? null,
+          },
+        },
+      );
+
+    return rows.map((row) => ({
+      ...row,
+      repeated: Number(row.repeated),
+    }));
+  }
+
   async getWeeklyErrorReportByApplicationId(applicationId: string) {
     return await this.getWeeklyErrorReport({
       applicationId,
@@ -782,7 +914,61 @@ export class ApplicationsRepository {
   }
 
   private getErrorNameExpression() {
-    return fn('COALESCE', col('name'), col('error'));
+    return fn('COALESCE', col('Errors.name'), col('Errors.error'));
+  }
+
+  private getGroupedErrorsCursorWhere(
+    sort: 'lastOccurred' | 'topRepeated',
+    hasCursor: boolean,
+  ) {
+    if (!hasCursor) {
+      return '';
+    }
+
+    const tieBreaker = `
+      (
+        grouped."applicationId" > :cursorApplicationId
+        OR (
+          grouped."applicationId" = :cursorApplicationId
+          AND grouped."errorName" > :cursorErrorName
+        )
+        OR (
+          grouped."applicationId" = :cursorApplicationId
+          AND grouped."errorName" = :cursorErrorName
+          AND COALESCE(grouped."level", '') > COALESCE(:cursorLevel, '')
+        )
+      )
+    `;
+
+    if (sort === 'topRepeated') {
+      return `
+        WHERE
+          grouped."repeated" < :cursorRepeated
+          OR (
+            grouped."repeated" = :cursorRepeated
+            AND grouped."lastOccurredAt" < :cursorLastOccurredAt
+          )
+          OR (
+            grouped."repeated" = :cursorRepeated
+            AND grouped."lastOccurredAt" = :cursorLastOccurredAt
+            AND ${tieBreaker}
+          )
+      `;
+    }
+
+    return `
+      WHERE
+        grouped."lastOccurredAt" < :cursorLastOccurredAt
+        OR (
+          grouped."lastOccurredAt" = :cursorLastOccurredAt
+          AND grouped."repeated" < :cursorRepeated
+        )
+        OR (
+          grouped."lastOccurredAt" = :cursorLastOccurredAt
+          AND grouped."repeated" = :cursorRepeated
+          AND ${tieBreaker}
+        )
+    `;
   }
 
   private async getApplicationIdsForUser(userId: string) {
