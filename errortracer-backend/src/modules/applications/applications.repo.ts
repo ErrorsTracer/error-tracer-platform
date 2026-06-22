@@ -5,7 +5,7 @@ import {
   fn,
   literal,
   Op,
-  QueryTypes,
+  Order,
   Transaction,
   where as sequelizeWhere,
 } from 'sequelize';
@@ -150,6 +150,7 @@ type GroupedUserApplicationErrorGroup = {
   level: string | null;
   repeated: number | string;
   lastOccurredAt: Date | string;
+  applicationName: string | null;
 };
 
 type UserApplicationGroupedError = {
@@ -702,80 +703,86 @@ export class ApplicationsRepository {
       return [];
     }
 
-    const cursorWhere = this.getGroupedErrorsCursorWhere(sort, Boolean(cursor));
-    const orderBy =
+    const errorName = this.getErrorNameExpression();
+    const repeatedExpression = fn('COUNT', col('Errors.id'));
+    const lastOccurredAtExpression = fn('MAX', col('Errors.createdAt'));
+    const groupsOrder: Order =
       sort === 'topRepeated'
-        ? `"repeated" DESC, "lastOccurredAt" DESC, "applicationId" ASC, "errorName" ASC, COALESCE("level", '') ASC`
-        : `"lastOccurredAt" DESC, "repeated" DESC, "applicationId" ASC, "errorName" ASC, COALESCE("level", '') ASC`;
-
-    const rows =
-      await this.errorsRepository.sequelize!.query<UserApplicationGroupedError>(
-        `
-          WITH grouped AS (
-            SELECT
-              "Errors"."applicationId" AS "applicationId",
-              COALESCE("Errors"."error", "Errors"."name") AS "errorName",
-              "Errors"."level" AS "level",
-              COUNT("Errors"."id")::int AS "repeated",
-              MAX("Errors"."createdAt") AS "lastOccurredAt"
-            FROM "errors-logs" AS "Errors"
-            WHERE
-              "Errors"."applicationId" IN (:applicationIds)
-              AND (:level::text IS NULL OR "Errors"."level" = :level)
-            GROUP BY
-              "Errors"."applicationId",
-              COALESCE("Errors"."error", "Errors"."name"),
-              "Errors"."level"
-          )
-          SELECT
-            grouped."applicationId",
-            grouped."errorName",
-            grouped."level",
-            grouped."repeated",
-            grouped."lastOccurredAt",
-            latest."id",
-            latest."client",
-            latest."runtime",
-            application."name" AS "applicationName"
-          FROM grouped
-          JOIN "applications" AS application
-            ON application."id" = grouped."applicationId"
-          LEFT JOIN LATERAL (
-            SELECT
-              latest."id",
-              latest."client",
-              latest."runtime"
-            FROM "errors-logs" AS latest
-            WHERE
-              latest."applicationId" = grouped."applicationId"
-              AND latest."level" IS NOT DISTINCT FROM grouped."level"
-              AND COALESCE(latest."error", latest."name") = grouped."errorName"
-            ORDER BY latest."createdAt" DESC, latest."id" DESC
-            LIMIT 1
-          ) AS latest ON true
-          ${cursorWhere}
-          ORDER BY ${orderBy}
-          LIMIT :limit
-        `,
+        ? [
+            [repeatedExpression, 'DESC'],
+            [lastOccurredAtExpression, 'DESC'],
+          ]
+        : [
+            [lastOccurredAtExpression, 'DESC'],
+            [repeatedExpression, 'DESC'],
+          ];
+    const groups = (await this.errorsRepository.findAll({
+      attributes: [
+        'applicationId',
+        [errorName, 'errorName'],
+        'level',
+        [repeatedExpression, 'repeated'],
+        [lastOccurredAtExpression, 'lastOccurredAt'],
+        [col('application.name'), 'applicationName'],
+      ],
+      where: {
+        applicationId: { [Op.in]: applicationIds },
+        ...(level !== undefined ? { level } : {}),
+      },
+      include: [
         {
-          type: QueryTypes.SELECT,
-          replacements: {
-            applicationIds,
-            level: level ?? null,
-            limit,
-            cursorRepeated: cursor?.repeated ?? null,
-            cursorLastOccurredAt: cursor?.lastOccurredAt ?? null,
-            cursorApplicationId: cursor?.applicationId ?? null,
-            cursorErrorName: cursor?.errorName ?? null,
-            cursorLevel: cursor?.level ?? null,
-          },
+          model: Applications,
+          as: 'application',
+          attributes: [],
+          required: true,
         },
-      );
+      ],
+      group: [
+        'Errors.applicationId',
+        errorName,
+        'level',
+        'application.id',
+        'application.name',
+      ],
+      having: this.getGroupedErrorsCursorHaving(sort, cursor),
+      order: [
+        ...groupsOrder,
+        ['applicationId', 'ASC'],
+        [errorName, 'ASC'],
+        [fn('COALESCE', col('Errors.level'), ''), 'ASC'],
+      ],
+      limit,
+      raw: true,
+    })) as unknown as GroupedUserApplicationErrorGroup[];
 
-    return rows.map((row) => ({
-      ...row,
-      repeated: Number(row.repeated),
-    }));
+    return await Promise.all(
+      groups.map(async (group) => {
+        const latestError = await this.errorsRepository.findOne({
+          where: {
+            applicationId: group.applicationId,
+            level: group.level,
+            [Op.and]: sequelizeWhere(errorName, group.errorName),
+          },
+          order: [
+            ['createdAt', 'DESC'],
+            ['id', 'DESC'],
+          ],
+          attributes: ['id', 'client', 'runtime'],
+        });
+
+        return {
+          id: latestError?.id ?? null,
+          errorName: group.errorName,
+          level: group.level,
+          client: latestError?.client ?? null,
+          runtime: latestError?.runtime ?? null,
+          applicationId: group.applicationId,
+          applicationName: group.applicationName,
+          repeated: Number(group.repeated),
+          lastOccurredAt: group.lastOccurredAt,
+        };
+      }),
+    );
   }
 
   async getWeeklyErrorReportByApplicationId(applicationId: string) {
@@ -914,61 +921,84 @@ export class ApplicationsRepository {
   }
 
   private getErrorNameExpression() {
-    return fn('COALESCE', col('Errors.error'), col('Errors.error'));
+    return fn('COALESCE', col('Errors.error'), col('Errors.name'));
   }
 
-  private getGroupedErrorsCursorWhere(
+  private getGroupedErrorsCursorHaving(
     sort: 'lastOccurred' | 'topRepeated',
-    hasCursor: boolean,
+    cursor?: GroupedUserApplicationErrorsCursor,
   ) {
-    if (!hasCursor) {
-      return '';
+    if (!cursor) {
+      return undefined;
     }
 
-    const tieBreaker = `
-      (
-        grouped."applicationId" > :cursorApplicationId
-        OR (
-          grouped."applicationId" = :cursorApplicationId
-          AND grouped."errorName" > :cursorErrorName
-        )
-        OR (
-          grouped."applicationId" = :cursorApplicationId
-          AND grouped."errorName" = :cursorErrorName
-          AND COALESCE(grouped."level", '') > COALESCE(:cursorLevel, '')
-        )
-      )
-    `;
+    const errorName = this.getErrorNameExpression();
+    const level = fn('COALESCE', col('Errors.level'), '');
+    const cursorLevel = cursor.level ?? '';
+    const repeated = fn('COUNT', col('Errors.id'));
+    const lastOccurredAt = fn('MAX', col('Errors.createdAt'));
+    const tieBreaker = {
+      [Op.or]: [
+        sequelizeWhere(
+          col('Errors.applicationId'),
+          Op.gt,
+          cursor.applicationId,
+        ),
+        {
+          [Op.and]: [
+            { applicationId: cursor.applicationId },
+            sequelizeWhere(errorName, Op.gt, cursor.errorName),
+          ],
+        },
+        {
+          [Op.and]: [
+            { applicationId: cursor.applicationId },
+            sequelizeWhere(errorName, cursor.errorName),
+            sequelizeWhere(level, Op.gt, cursorLevel),
+          ],
+        },
+      ],
+    };
 
     if (sort === 'topRepeated') {
-      return `
-        WHERE
-          grouped."repeated" < :cursorRepeated
-          OR (
-            grouped."repeated" = :cursorRepeated
-            AND grouped."lastOccurredAt" < :cursorLastOccurredAt
-          )
-          OR (
-            grouped."repeated" = :cursorRepeated
-            AND grouped."lastOccurredAt" = :cursorLastOccurredAt
-            AND ${tieBreaker}
-          )
-      `;
+      return {
+        [Op.or]: [
+          sequelizeWhere(repeated, Op.lt, cursor.repeated),
+          {
+            [Op.and]: [
+              sequelizeWhere(repeated, cursor.repeated),
+              sequelizeWhere(lastOccurredAt, Op.lt, cursor.lastOccurredAt),
+            ],
+          },
+          {
+            [Op.and]: [
+              sequelizeWhere(repeated, cursor.repeated),
+              sequelizeWhere(lastOccurredAt, cursor.lastOccurredAt),
+              tieBreaker,
+            ],
+          },
+        ],
+      };
     }
 
-    return `
-      WHERE
-        grouped."lastOccurredAt" < :cursorLastOccurredAt
-        OR (
-          grouped."lastOccurredAt" = :cursorLastOccurredAt
-          AND grouped."repeated" < :cursorRepeated
-        )
-        OR (
-          grouped."lastOccurredAt" = :cursorLastOccurredAt
-          AND grouped."repeated" = :cursorRepeated
-          AND ${tieBreaker}
-        )
-    `;
+    return {
+      [Op.or]: [
+        sequelizeWhere(lastOccurredAt, Op.lt, cursor.lastOccurredAt),
+        {
+          [Op.and]: [
+            sequelizeWhere(lastOccurredAt, cursor.lastOccurredAt),
+            sequelizeWhere(repeated, Op.lt, cursor.repeated),
+          ],
+        },
+        {
+          [Op.and]: [
+            sequelizeWhere(lastOccurredAt, cursor.lastOccurredAt),
+            sequelizeWhere(repeated, cursor.repeated),
+            tieBreaker,
+          ],
+        },
+      ],
+    };
   }
 
   private async getApplicationIdsForUser(userId: string) {
