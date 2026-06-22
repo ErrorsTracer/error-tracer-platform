@@ -714,7 +714,7 @@ export class ApplicationsRepository {
           WITH grouped AS (
             SELECT
               "Errors"."applicationId" AS "applicationId",
-              COALESCE("Errors"."name", "Errors"."error") AS "errorName",
+              COALESCE("Errors"."error", "Errors"."name") AS "errorName",
               "Errors"."level" AS "level",
               COUNT("Errors"."id")::int AS "repeated",
               MAX("Errors"."createdAt") AS "lastOccurredAt"
@@ -724,7 +724,7 @@ export class ApplicationsRepository {
               AND (:level::text IS NULL OR "Errors"."level" = :level)
             GROUP BY
               "Errors"."applicationId",
-              COALESCE("Errors"."name", "Errors"."error"),
+              COALESCE("Errors"."error", "Errors"."name"),
               "Errors"."level"
           )
           SELECT
@@ -749,7 +749,7 @@ export class ApplicationsRepository {
             WHERE
               latest."applicationId" = grouped."applicationId"
               AND latest."level" IS NOT DISTINCT FROM grouped."level"
-              AND COALESCE(latest."name", latest."error") = grouped."errorName"
+              AND COALESCE(latest."error", latest."name") = grouped."errorName"
             ORDER BY latest."createdAt" DESC, latest."id" DESC
             LIMIT 1
           ) AS latest ON true
@@ -914,7 +914,7 @@ export class ApplicationsRepository {
   }
 
   private getErrorNameExpression() {
-    return fn('COALESCE', col('Errors.name'), col('Errors.error'));
+    return fn('COALESCE', col('Errors.error'), col('Errors.error'));
   }
 
   private getGroupedErrorsCursorWhere(
