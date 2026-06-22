@@ -320,13 +320,20 @@ describe('Applications API (e2e)', () => {
           limit: 10,
           hasMore: false,
         });
-        expect(body.data).toHaveLength(4);
+        expect(body.data).toHaveLength(5);
         expect(body.data).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
               name: 'RepeatedTypeErrorSmoke',
-              errorName: 'RepeatedTypeErrorSmoke',
-              repeated: 2,
+              error: 'NamedErrorSmokeAgain',
+              errorName: 'NamedErrorSmokeAgain',
+              repeated: 1,
+            }),
+            expect.objectContaining({
+              name: 'RepeatedTypeErrorSmoke',
+              error: 'NamedErrorSmoke',
+              errorName: 'NamedErrorSmoke',
+              repeated: 1,
             }),
             expect.objectContaining({
               error: 'NormalErrorSmoke',
@@ -337,10 +344,10 @@ describe('Applications API (e2e)', () => {
         );
         expect(
           body.data.filter(
-            (item: { errorName: string }) =>
-              item.errorName === 'RepeatedTypeErrorSmoke',
+            (item: { name: string | null }) =>
+              item.name === 'RepeatedTypeErrorSmoke',
           ),
-        ).toHaveLength(1);
+        ).toHaveLength(2);
         expect(typeof body.data[0].repeated).toBe('number');
       });
 
@@ -399,7 +406,7 @@ describe('Applications API (e2e)', () => {
             id: repeatedError.id,
             name: 'RepeatedTypeErrorSmoke',
             errorName: 'RepeatedTypeErrorSmoke',
-            repeated: 2,
+            repeated: 0,
           }),
         );
         expect(typeof body.repeated).toBe('number');
@@ -526,15 +533,15 @@ describe('Applications API (e2e)', () => {
         expect(body.data).toEqual(
           expect.arrayContaining([
             {
-              errorName: 'RepeatedTypeErrorSmoke',
+              errorName: 'NamedErrorSmokeFromSecondApp',
               level: 'error',
               client: 'node',
               runtime: 'server',
-              repeated: 3,
+              repeated: 1,
               lastSeenAt: expect.any(String),
             },
             {
-              errorName: 'RepeatedTypeErrorSmoke',
+              errorName: 'NamedWarningSmokeFromSecondApp',
               level: 'warning',
               client: 'react',
               runtime: 'browser',
@@ -546,9 +553,9 @@ describe('Applications API (e2e)', () => {
         expect(
           body.data.filter(
             (item: { errorName: string }) =>
-              item.errorName === 'RepeatedTypeErrorSmoke',
+              item.errorName.startsWith('NamedErrorSmoke'),
           ),
-        ).toHaveLength(2);
+        ).toHaveLength(3);
         expect(typeof body.data[0].repeated).toBe('number');
       });
 
@@ -562,10 +569,9 @@ describe('Applications API (e2e)', () => {
         expect(body).toEqual({
           data: [],
           pageInfo: {
-            page: 1,
             limit: 25,
             hasMore: false,
-            nextPage: null,
+            nextCursor: null,
           },
         });
       });
@@ -583,16 +589,15 @@ describe('Applications API (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body.pageInfo).toEqual({
-          page: 1,
           limit: 10,
           hasMore: false,
-          nextPage: null,
+          nextCursor: null,
         });
         expect(body.data).toEqual(
           expect.arrayContaining([
             {
               id: expect.any(String),
-              errorName: 'RepeatedTypeErrorSmoke',
+              errorName: 'NamedErrorSmokeFromSecondApp',
               level: 'error',
               client: 'node',
               runtime: 'server',
@@ -618,39 +623,54 @@ describe('Applications API (e2e)', () => {
         ).toBe(true);
       });
 
-    await request(context.httpServer)
+    const firstGroupedErrorsPage = await request(context.httpServer)
       .get('/v0.1/applications/errors?level=error&sort=topRepeated&limit=2')
       .set(authHeader(owner.accessToken))
-      .expect(200)
-      .expect(({ body }) => {
-        expect(body.pageInfo).toEqual({
-          page: 1,
-          limit: 2,
-          hasMore: true,
-          nextPage: 2,
-        });
-        expect(body.data[0]).toEqual(
-          expect.objectContaining({
-            errorName: 'RepeatedTypeErrorSmoke',
-            level: 'error',
-            applicationId: application.id,
-            repeated: 2,
-          }),
-        );
-      });
+      .expect(200);
+    expect(firstGroupedErrorsPage.body.pageInfo).toEqual({
+      limit: 2,
+      hasMore: true,
+      nextCursor: expect.any(String),
+    });
+    expect(firstGroupedErrorsPage.body.data).toHaveLength(2);
+    expect(firstGroupedErrorsPage.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: 'error',
+          repeated: 1,
+        }),
+      ]),
+    );
 
     await request(context.httpServer)
-      .get('/v0.1/applications/errors?level=error&sort=topRepeated&limit=2&page=2')
+      .get(
+        `/v0.1/applications/errors?level=error&sort=topRepeated&limit=2&cursor=${firstGroupedErrorsPage.body.pageInfo.nextCursor}`,
+      )
       .set(authHeader(owner.accessToken))
       .expect(200)
       .expect(({ body }) => {
         expect(body.pageInfo).toEqual({
-          page: 2,
           limit: 2,
-          hasMore: false,
-          nextPage: null,
+          hasMore: true,
+          nextCursor: expect.any(String),
         });
         expect(body.data).toHaveLength(2);
+        expect(body.data).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              errorName: 'NamedErrorSmokeAgain',
+              level: 'error',
+              applicationId: application.id,
+              repeated: 1,
+            }),
+            expect.objectContaining({
+              errorName: 'NamedErrorSmoke',
+              level: 'error',
+              applicationId: application.id,
+              repeated: 1,
+            }),
+          ]),
+        );
       });
 
     await request(context.httpServer)
@@ -658,16 +678,26 @@ describe('Applications API (e2e)', () => {
       .set(authHeader(owner.accessToken))
       .expect(200)
       .expect(({ body }) => {
-        const repeatedErrorGroups = body.data.filter(
-          (item: { errorName: string; applicationId: string; level: string }) =>
-            item.errorName === 'RepeatedTypeErrorSmoke' &&
-            item.applicationId === application.id &&
-            item.level === 'error',
+        expect(body.data).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              errorName: 'SecondAppCriticalErrorSmoke',
+              applicationId: secondApplication.id,
+              level: 'critical',
+              repeated: 1,
+            }),
+          ]),
         );
-        expect(repeatedErrorGroups).toHaveLength(1);
-        expect(repeatedErrorGroups[0]).toEqual(
+        expect(
+          body.data.every(
+            (item: { level: string }) => item.level === 'critical',
+          ),
+        ).toBe(true);
+        expect(body.pageInfo).toEqual(
           expect.objectContaining({
-            repeated: 2,
+            limit: 10,
+            hasMore: false,
+            nextCursor: null,
           }),
         );
       });
