@@ -33,6 +33,7 @@ interface AppSettingsTabProps {
     description: string;
     productionMode: boolean;
   };
+  canManageApp: boolean;
   onProductionModeChange: (productionMode: boolean) => void;
 }
 
@@ -45,6 +46,7 @@ interface ProductionModeResponse {
 
 export function AppSettingsTab({
   app,
+  canManageApp,
   onProductionModeChange,
 }: AppSettingsTabProps) {
   const router = useRouter();
@@ -56,9 +58,8 @@ export function AppSettingsTab({
   const [deleting, setDeleting] = useState(false);
   const canDelete = deleteConfirmation === app.name;
 
-
   async function handleDelete() {
-    if (!canDelete) {
+    if (!canManageApp || !canDelete) {
       return;
     }
 
@@ -81,6 +82,10 @@ export function AppSettingsTab({
   }
 
   async function handleProductionModeChange(checked: boolean) {
+    if (!canManageApp) {
+      return;
+    }
+
     const previousValue = productionMode;
 
     setProductionMode(checked);
@@ -115,7 +120,7 @@ export function AppSettingsTab({
   }
 
   function handleDeleteOpenChange(open: boolean) {
-    if (deleting) {
+    if (!canManageApp || deleting) {
       return;
     }
 
@@ -124,6 +129,10 @@ export function AppSettingsTab({
     if (!open) {
       setDeleteConfirmation("");
     }
+  }
+
+  if (!canManageApp) {
+    return null;
   }
 
   return (

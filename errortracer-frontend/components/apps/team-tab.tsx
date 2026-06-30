@@ -57,6 +57,7 @@ const roleConfig = {
 
 interface AppTeamTabProps {
   appId: string;
+  canManageApp: boolean;
 }
 
 interface AppMembership {
@@ -72,7 +73,7 @@ interface AppMembership {
   } | null;
 }
 
-export function AppTeamTab({ appId }: AppTeamTabProps) {
+export function AppTeamTab({ appId, canManageApp }: AppTeamTabProps) {
   const [memberships, setMemberships] = useState<AppMembership[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -99,6 +100,10 @@ export function AppTeamTab({ appId }: AppTeamTabProps) {
 
   async function handleInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!canManageApp) {
+      return;
+    }
 
     const emails = inviteEmail
       .split(",")
@@ -166,45 +171,46 @@ export function AppTeamTab({ appId }: AppTeamTabProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Invite */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="text-sm font-medium text-foreground">
-          Invite Team Member
-        </h3>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Invite one or more people by email.
-        </p>
-        <form
-          onSubmit={handleInvite}
-          className="flex flex-wrap items-end gap-3"
-        >
-          <div className="flex flex-1 flex-col gap-2 sm:min-w-64">
-            <Label htmlFor="invite-email" className="text-xs">
-              Email address
-            </Label>
-            <Input
-              id="invite-email"
-              type="text"
-              placeholder="colleague@company.com"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              disabled={inviting}
-            />
-          </div>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={inviting || inviteEmail.trim().length === 0}
+      {canManageApp && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h3 className="text-sm font-medium text-foreground">
+            Invite Team Member
+          </h3>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Invite one or more people by email.
+          </p>
+          <form
+            onSubmit={handleInvite}
+            className="flex flex-wrap items-end gap-3"
           >
-            {inviting ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <UserPlus className="size-3.5" />
-            )}
-            {inviting ? "Sending..." : "Send Invite"}
-          </Button>
-        </form>
-      </div>
+            <div className="flex flex-1 flex-col gap-2 sm:min-w-64">
+              <Label htmlFor="invite-email" className="text-xs">
+                Email address
+              </Label>
+              <Input
+                id="invite-email"
+                type="text"
+                placeholder="colleague@company.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                disabled={inviting}
+              />
+            </div>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={inviting || inviteEmail.trim().length === 0}
+            >
+              {inviting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <UserPlus className="size-3.5" />
+              )}
+              {inviting ? "Sending..." : "Send Invite"}
+            </Button>
+          </form>
+        </div>
+      )}
 
       {/* Roles */}
       <div className="rounded-lg border border-border bg-card p-4">
@@ -243,14 +249,14 @@ export function AppTeamTab({ appId }: AppTeamTabProps) {
               <TableHead className="text-xs">Role</TableHead>
               <TableHead className="text-xs">Status</TableHead>
               <TableHead className="text-xs">Last Active</TableHead>
-              <TableHead className="text-xs w-10"></TableHead>
+              {canManageApp && <TableHead className="w-10 text-xs"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={canManageApp ? 5 : 4}
                   className="h-24 text-center text-sm text-muted-foreground"
                 >
                   <Loader2 className="mr-2 inline size-4 animate-spin" />
@@ -261,7 +267,7 @@ export function AppTeamTab({ appId }: AppTeamTabProps) {
 
             {!loading && error && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={canManageApp ? 5 : 4}>
                   <div className="flex min-h-24 flex-col items-center justify-center gap-3 text-center">
                     <p className="text-sm text-muted-foreground">{error}</p>
                     <Button
@@ -281,7 +287,7 @@ export function AppTeamTab({ appId }: AppTeamTabProps) {
             {!loading && !error && memberships.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={canManageApp ? 5 : 4}
                   className="h-24 text-center text-sm text-muted-foreground"
                 >
                   No team members or invitations yet.
@@ -337,22 +343,24 @@ export function AppTeamTab({ appId }: AppTeamTabProps) {
                         ? formatRelativeTime(member.joinedAt)
                         : "Invited"}
                     </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon-sm">
-                            <MoreHorizontal className="size-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Change role</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            Remove
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                    {canManageApp && (
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon-sm">
+                              <MoreHorizontal className="size-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>Change role</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive">
+                              Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}

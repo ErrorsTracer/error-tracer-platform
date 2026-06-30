@@ -16,6 +16,7 @@ import { apiFetch } from "@/lib/api-client";
 interface AppIntegrationTabProps {
   appId: string;
   appKey: string;
+  canManageApp: boolean;
   onAppKeyChange: (appKey: string) => void;
 }
 
@@ -128,6 +129,7 @@ Http::withHeaders([
 export function AppIntegrationTab({
   appId,
   appKey,
+  canManageApp,
   onAppKeyChange,
 }: AppIntegrationTabProps) {
   const [revealed, setRevealed] = useState(false);
@@ -145,6 +147,10 @@ export function AppIntegrationTab({
   }
 
   async function handleRotate() {
+    if (!canManageApp) {
+      return;
+    }
+
     setRotating(true);
 
     try {
@@ -202,26 +208,30 @@ export function AppIntegrationTab({
               <Copy className="size-3.5" />
             )}
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRotate}
-            disabled={rotating}
-            className="text-destructive"
-          >
-            <RefreshCw
-              className={`size-3.5 ${rotating ? "animate-spin" : ""}`}
-            />
-          </Button>
+          {canManageApp && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRotate}
+              disabled={rotating}
+              className="text-destructive"
+            >
+              <RefreshCw
+                className={`size-3.5 ${rotating ? "animate-spin" : ""}`}
+              />
+            </Button>
+          )}
         </div>
 
-        <div className="mt-3 flex items-center gap-2 rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
-          <AlertTriangle className="size-3.5 shrink-0 text-yellow-400" />
-          <p className="text-xs text-yellow-400">
-            Rotating this key will invalidate the current key immediately.
-            Update all integrations.
-          </p>
-        </div>
+        {canManageApp && (
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
+            <AlertTriangle className="size-3.5 shrink-0 text-yellow-400" />
+            <p className="text-xs text-yellow-400">
+              Rotating this key will invalidate the current key immediately.
+              Update all integrations.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* API Endpoint */}

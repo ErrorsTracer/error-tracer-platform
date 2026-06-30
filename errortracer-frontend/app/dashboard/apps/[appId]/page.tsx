@@ -3,9 +3,10 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getFrameworkColor } from "@/lib/mock-data";
 import { cn, formatCount } from "@/lib/utils";
 import { AppOverviewTab } from "@/components/apps/overview-tab";
@@ -31,6 +32,9 @@ interface ApiApplication {
     envName?: string | null;
     appKey?: string | null;
   } | null;
+  membership?: {
+    role?: string | null;
+  } | null;
 }
 
 interface AppViewModel {
@@ -44,6 +48,7 @@ interface AppViewModel {
   status: string;
   key: string;
   productionMode: boolean;
+  membershipRole: string | null;
 }
 
 interface ApiApplicationCredentials {
@@ -68,16 +73,24 @@ export default function AppDetailPage({
   const [app, setApp] = useState<AppViewModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isOwner = app?.membershipRole === "owner";
+  const activeTab =
+    selectedTab === "settings" && !isOwner ? "overview" : selectedTab;
 
   function handleTabChange(tab: string) {
     const nextTab = getSelectedTab(tab);
+    const permittedTab =
+      nextTab === "settings" && !isOwner ? "overview" : nextTab;
 
-    if (nextTab === selectedTab && currentSearchParams.get("tab") === nextTab) {
+    if (
+      permittedTab === activeTab &&
+      currentSearchParams.get("tab") === permittedTab
+    ) {
       return;
     }
 
     const params = new URLSearchParams(currentSearchParams.toString());
-    params.set("tab", nextTab);
+    params.set("tab", permittedTab);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
   async function loadApp() {
@@ -86,7 +99,6 @@ export default function AppDetailPage({
 
     try {
       const data = await fetchAppDetail(appId);
-
 
       setApp(data);
     } catch (error) {
@@ -129,6 +141,22 @@ export default function AppDetailPage({
       active = false;
     };
   }, [appId]);
+
+  useEffect(() => {
+    if (!loading && app && selectedTab === "settings" && !isOwner) {
+      const params = new URLSearchParams(currentSearchParams.toString());
+      params.set("tab", "overview");
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }
+  }, [
+    app,
+    currentSearchParams,
+    isOwner,
+    loading,
+    pathname,
+    router,
+    selectedTab,
+  ]);
 
   if (loading) {
     return (
@@ -227,9 +255,31 @@ export default function AppDetailPage({
         </div>
       </div>
 
+      {isOwner && !app.productionMode && (
+        <Alert className="border-yellow-500/20 bg-yellow-500/5 text-yellow-500">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Production mode is off</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 text-yellow-500/90 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Turn on production mode when this app is ready to collect live
+              errors.
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-yellow-500/30 bg-transparent text-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400"
+              asChild
+            >
+              <Link href={`${pathname}?tab=settings`}>Open settings</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Tabs */}
       <Tabs
-        value={selectedTab}
+        value={activeTab}
         onValueChange={handleTabChange}
         className="flex flex-col gap-4"
       >
@@ -238,7 +288,7 @@ export default function AppDetailPage({
           <TabsTrigger value="errors">Errors</TabsTrigger>
           <TabsTrigger value="integration">Integration</TabsTrigger>
           <TabsTrigger value="team">Team & Permissions</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          {isOwner && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -251,6 +301,7 @@ export default function AppDetailPage({
           <AppIntegrationTab
             appId={app.id}
             appKey={app.key}
+            canManageApp={isOwner}
             onAppKeyChange={(appKey) =>
               setApp((currentApp) =>
                 currentApp ? { ...currentApp, key: appKey } : currentApp,
@@ -259,18 +310,21 @@ export default function AppDetailPage({
           />
         </TabsContent>
         <TabsContent value="team">
-          <AppTeamTab appId={app.id} />
+          <AppTeamTab appId={app.id} canManageApp={isOwner} />
         </TabsContent>
-        <TabsContent value="settings">
-          <AppSettingsTab
-            app={app}
-            onProductionModeChange={(productionMode) =>
-              setApp((currentApp) =>
-                currentApp ? { ...currentApp, productionMode } : currentApp,
-              )
-            }
-          />
-        </TabsContent>
+        {isOwner && (
+          <TabsContent value="settings">
+            <AppSettingsTab
+              app={app}
+              canManageApp={isOwner}
+              onProductionModeChange={(productionMode) =>
+                setApp((currentApp) =>
+                  currentApp ? { ...currentApp, productionMode } : currentApp,
+                )
+              }
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
@@ -303,6 +357,7 @@ function toAppViewModel(
     key: credentials?.appKey ?? "",
     productionMode:
       credentials?.isEnabled ?? credentials?.productionMode ?? false,
+    membershipRole: app.membership?.role ?? null,
   };
 }
 
