@@ -93,6 +93,12 @@ describe('Applications API (e2e)', () => {
           expect.objectContaining({
             errorsCount: 0,
             criticalCount: 0,
+            membership: expect.objectContaining({
+              id: expect.any(String),
+              role: 'owner',
+              status: 'active',
+              joinedAt: expect.any(String),
+            }),
           }),
         );
         expect(typeof body.errorsCount).toBe('number');

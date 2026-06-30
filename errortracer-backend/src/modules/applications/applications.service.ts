@@ -573,7 +573,23 @@ export class ApplicationsService {
       throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
     }
 
-    return application;
+    const membership =
+      await this.applicationsRepository.getActiveMembershipForApp({
+        applicationId: params.id,
+        userId: user.id,
+      });
+
+    return {
+      ...application.toJSON(),
+      membership: membership
+        ? {
+            id: membership.id,
+            role: membership.role,
+            status: membership.status,
+            joinedAt: membership.joinedAt,
+          }
+        : null,
+    };
   }
 
   private async updateAppStatus(params, user, status: ApplicationStatus) {
