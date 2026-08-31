@@ -7,7 +7,8 @@ If you prefer a hosted SaaS version so you do not have to manage servers, databa
 ## Features
 
 - Self-hosted error logging dashboard
-- Backend API for authentication, applications, users, and error ingestion
+- Backend API for authentication, applications, and users
+- Dedicated error ingestion service
 - PostgreSQL persistence
 - Docker Compose setup for production and realtime development
 - Environment-based configuration from the root project `.env`
@@ -28,6 +29,7 @@ If you prefer a hosted SaaS version so you do not have to manage servers, databa
 ├── compose.dev.yml             # Development Docker Compose override
 ├── .env.example                # Example environment configuration
 ├── errortracer-backend/        # NestJS backend API
+├── errortracer-errors/         # NestJS error ingestion API
 └── errortracer-frontend/       # Next.js frontend dashboard
 ```
 
@@ -67,6 +69,7 @@ docker compose --env-file .env -f compose.yml up -d --build
 ```text
 Frontend: http://localhost:3000
 Backend:  http://localhost:4973
+Errors:   http://localhost:4974/v0.1/errors/ingest
 ```
 
 5. Stop the stack:
@@ -77,7 +80,7 @@ docker compose --env-file .env -f compose.yml down
 
 ## Development
 
-The development stack mounts the frontend and backend source folders into the containers and runs both apps in watch mode.
+The development stack mounts all application source folders into the containers and runs them in watch mode.
 
 Start development:
 
@@ -115,6 +118,7 @@ Restart one service:
 
 ```bash
 docker compose --env-file .env -f compose.yml restart backend
+docker compose --env-file .env -f compose.yml restart errors
 docker compose --env-file .env -f compose.yml restart frontend
 docker compose --env-file .env -f compose.yml restart database
 ```
@@ -140,6 +144,7 @@ Important values:
 - `DB_USER`, `DB_PASSWORD`, `DB_NAME`: PostgreSQL credentials
 - `DATABASE_PUBLISHED_PORT`: Host port for PostgreSQL
 - `APP_PORT`, `BACKEND_PORT`: Backend container and host ports
+- `ERRORS_APP_PORT`, `ERRORS_SERVICE_PORT`: Ingestion container and host ports
 - `FRONTEND_PORT`: Frontend host port
 - `ORIGIN`: Frontend URL allowed by backend CORS
 - `NEXT_PUBLIC_API_BASE_URL`: Backend URL used by the frontend
@@ -173,4 +178,3 @@ Before deploying publicly:
 ## License
 
 This project is open-source. See [LICENSE](./LICENSE) for details.
-

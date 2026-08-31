@@ -17,6 +17,18 @@ services:
     stdin_open: true
     tty: true
 
+  errors:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+    command: ["bun", "run", "start:dev"]
+    volumes:
+      - ./errortracer-errors:/usr/src/app
+      - errors_node_modules:/usr/src/app/node_modules
+    stdin_open: true
+    tty: true
+
   frontend:
     build:
       target: development
@@ -35,6 +47,6 @@ services:
 
 volumes:
   backend_node_modules:
+  errors_node_modules:
   frontend_node_modules:
   frontend_next:
-
