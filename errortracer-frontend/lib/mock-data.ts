@@ -295,7 +295,7 @@ export const mockTeamMembers = [
   {
     id: "usr_1",
     name: "User Name",
-    email: "First@errortracer.io",
+    email: "First@stacklogger.io",
     role: "owner" as const,
     status: "active" as const,
     lastActive: "2026-05-16T09:30:00Z",
@@ -304,7 +304,7 @@ export const mockTeamMembers = [
   {
     id: "usr_2",
     name: "Marcus Johnson",
-    email: "marcus@errortracer.io",
+    email: "marcus@stacklogger.io",
     role: "admin" as const,
     status: "active" as const,
     lastActive: "2026-05-16T09:15:00Z",
@@ -313,7 +313,7 @@ export const mockTeamMembers = [
   {
     id: "usr_3",
     name: "Alex Rivera",
-    email: "alex@errortracer.io",
+    email: "alex@stacklogger.io",
     role: "developer" as const,
     status: "active" as const,
     lastActive: "2026-05-16T08:45:00Z",
@@ -322,7 +322,7 @@ export const mockTeamMembers = [
   {
     id: "usr_4",
     name: "Jamie Park",
-    email: "jamie@errortracer.io",
+    email: "jamie@stacklogger.io",
     role: "developer" as const,
     status: "active" as const,
     lastActive: "2026-05-15T18:30:00Z",
@@ -331,7 +331,7 @@ export const mockTeamMembers = [
   {
     id: "usr_5",
     name: "Taylor Kim",
-    email: "taylor@errortracer.io",
+    email: "taylor@stacklogger.io",
     role: "viewer" as const,
     status: "active" as const,
     lastActive: "2026-05-15T16:00:00Z",
@@ -340,7 +340,7 @@ export const mockTeamMembers = [
   {
     id: "usr_6",
     name: "Jordan Lee",
-    email: "jordan@errortracer.io",
+    email: "jordan@stacklogger.io",
     role: "developer" as const,
     status: "invited" as const,
     lastActive: null,

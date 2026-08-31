@@ -28,7 +28,7 @@ const codeExamples = [
   {
     label: "JavaScript Fetch",
     lang: "javascript",
-    code: `fetch("https://api.errortracer.io/v0.1/errors/ingest", {
+    code: `fetch("https://api.stacklogger.io/v0.1/errors/ingest", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -52,7 +52,7 @@ const codeExamples = [
     lang: "tsx",
     code: `class ErrorTracerBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
-    fetch("https://api.errortracer.io/v0.1/errors/ingest", {
+    fetch("https://api.stacklogger.io/v0.1/errors/ingest", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -72,7 +72,7 @@ const codeExamples = [
   {
     label: "cURL",
     lang: "bash",
-    code: `curl -X POST https://api.errortracer.io/v0.1/errors/ingest \\
+    code: `curl -X POST https://api.stacklogger.io/v0.1/errors/ingest \\
   -H "Content-Type: application/json" \\
   -H "X-ErrorTracer-Key: <APPLICATION_KEY>" \\
   -d '{
@@ -89,7 +89,7 @@ const codeExamples = [
 
 async function reportError(error: Error) {
   await this.httpService.post(
-    'https://api.errortracer.io/v0.1/errors/ingest',
+    'https://api.stacklogger.io/v0.1/errors/ingest',
     {
       framework: 'nestjs',
       language: 'typescript',
@@ -114,7 +114,7 @@ async function reportError(error: Error) {
 
 Http::withHeaders([
     'X-ErrorTracer-Key' => config('services.errortracer.key'),
-])->post('https://api.errortracer.io/v0.1/errors/ingest', [
+])->post('https://api.stacklogger.io/v0.1/errors/ingest', [
     'framework' => 'laravel',
     'language' => 'php',
     'runtime' => 'php',
@@ -245,7 +245,7 @@ export function AppIntegrationTab({
             POST
           </span>
           <code className="font-mono text-sm text-foreground">
-            https://api.errortracer.io/v0.1/errors/ingest
+            https://api.stacklogger.io/v0.1/errors/ingest
           </code>
         </div>
         <div className="mt-2">

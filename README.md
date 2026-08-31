@@ -2,7 +2,7 @@
 
 ErrorTracer is a self-hosted, open-source error logging platform created by Elsiddig Ahmed. It helps teams capture, inspect, and manage application errors from one dashboard.
 
-If you prefer a hosted SaaS version so you do not have to manage servers, databases, updates, or deployments, visit [errortracer.io](https://errortracer.io).
+If you prefer a hosted SaaS version so you do not have to manage servers, databases, updates, or deployments, visit [stacklogger.io](https://stacklogger.io).
 
 ## Features
 
