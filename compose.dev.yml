@@ -22,12 +22,11 @@ services:
       target: development
     environment:
       NODE_ENV: development
-    # The named node_modules volume survives image rebuilds. Synchronize it with
-    # the lockfile so newly added packages (such as KafkaJS) are always present.
-    command: ["sh", "-c", "bun install --frozen-lockfile && exec bun run start:dev"]
+      RUST_LOG: ${RUST_LOG:-errortracer_errors=debug,tower_http=info,rdkafka=warn}
+    command: ["cargo", "watch", "-x", "run"]
     volumes:
       - ./errortracer-errors:/usr/src/app
-      - errors_node_modules:/usr/src/app/node_modules
+      - errors_target:/usr/src/app/target
     stdin_open: true
     tty: true
 
@@ -49,6 +48,6 @@ services:
 
 volumes:
   backend_node_modules:
-  errors_node_modules:
+  errors_target:
   frontend_node_modules:
   frontend_next:

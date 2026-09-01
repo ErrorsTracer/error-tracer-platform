@@ -17,6 +17,7 @@ If you prefer a hosted SaaS version so you do not have to manage servers, databa
 
 - Frontend: Next.js, React, TypeScript, Tailwind CSS, Radix UI
 - Backend: NestJS, TypeScript, Sequelize
+- Error ingestion: Rust, Axum, SQLx, librdkafka
 - Database: PostgreSQL
 - Runtime and package manager: Bun
 - Infrastructure: Docker and Docker Compose
@@ -29,7 +30,7 @@ If you prefer a hosted SaaS version so you do not have to manage servers, databa
 ├── compose.dev.yml             # Development Docker Compose override
 ├── .env.example                # Example environment configuration
 ├── errortracer-backend/        # NestJS backend API
-├── errortracer-errors/         # NestJS error ingestion API
+├── errortracer-errors/         # Rust error ingestion API
 └── errortracer-frontend/       # Next.js frontend dashboard
 ```
 
