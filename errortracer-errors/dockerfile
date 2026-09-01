@@ -1,21 +1,30 @@
-FROM oven/bun:1 AS base
+FROM rust:1.89-bookworm AS builder
 WORKDIR /usr/src/app
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends cmake clang libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+COPY Cargo.toml Cargo.lock* ./
+COPY src ./src
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/src/app/target \
+    cargo build --release --locked \
+    && cp target/release/errortracer-errors /tmp/errortracer-errors
 
-FROM base AS development
-COPY . .
-CMD ["bun", "run", "start:dev"]
+FROM debian:bookworm-slim AS production
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --no-create-home errortracer
+COPY --from=builder /tmp/errortracer-errors /usr/local/bin/errortracer-errors
+USER errortracer
+EXPOSE 4974
+ENTRYPOINT ["/usr/local/bin/errortracer-errors"]
 
-FROM base AS builder
-COPY . .
-RUN bun run build
+FROM builder AS development
+RUN cargo install cargo-watch --locked
+CMD ["cargo", "watch", "-x", "run"]
 
-FROM oven/bun:1 AS production
-WORKDIR /usr/src/app
-ENV NODE_ENV=production
-COPY --from=builder /usr/src/app/dist ./dist
-COPY --from=builder /usr/src/app/package.json ./
-COPY --from=builder /usr/src/app/bun.lock ./
-COPY --from=builder /usr/src/app/node_modules ./node_modules
-CMD ["bun", "run", "start:prod"]
+FROM builder AS test
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/src/app/target \
+    cargo test --release --locked
