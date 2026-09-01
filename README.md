@@ -142,6 +142,7 @@ All Docker Compose configuration is managed from the root `.env` file. The front
 Important values:
 
 - `DB_USER`, `DB_PASSWORD`, `DB_NAME`: PostgreSQL credentials
+- `RUN_DB_MIGRATIONS`, `RUN_DB_SEEDS`: automatically apply pending migrations and seeds before the backend starts (both default to `true`)
 - `DATABASE_PUBLISHED_PORT`: Host port for PostgreSQL
 - `APP_PORT`, `BACKEND_PORT`: Backend container and host ports
 - `ERRORS_APP_PORT`, `ERRORS_SERVICE_PORT`: Ingestion container and host ports

@@ -38,6 +38,10 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
+      # The production entrypoint initializes a fresh database before Nest starts.
+      # SequelizeMeta/SequelizeData make both operations safe on later restarts.
+      RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+      RUN_DB_SEEDS: ${RUN_DB_SEEDS:-true}
       APP_PORT: ${APP_PORT:-4973}
       ORIGIN: ${ORIGIN:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}

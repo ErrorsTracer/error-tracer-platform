@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eu
 
 if [ "${RUN_DB_MIGRATIONS:-true}" = "true" ]; then
   echo "Running database migrations..."
@@ -7,8 +7,9 @@ if [ "${RUN_DB_MIGRATIONS:-true}" = "true" ]; then
 fi
 
 if [ "${RUN_DB_SEEDS:-true}" = "true" ]; then
-  echo "Running database seeds..."
+  echo "Running pending database seeds..."
   bun run db:seed:run
 fi
 
+echo "Database initialization complete. Starting backend..."
 exec "$@"
