@@ -9,6 +9,7 @@ export class ErrorsController {
 
   @Post('/ingest')
   ingest(@Body() body: IngestErrorDto, @Headers('x-errortracer-key') key?: string, @Req() request?: Request & { rawBody?: Buffer }) {
+    
     return this.errors.ingest(body, key, request?.rawBody);
   }
 }

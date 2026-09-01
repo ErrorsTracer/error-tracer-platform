@@ -7,7 +7,7 @@ const process = require('process');
 const dotenv = require('dotenv');
 const basename = path.basename(__filename);
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const configs = {
   username: process.env.DB_USER,
@@ -21,7 +21,6 @@ const configs = {
   seederStorage: 'sequelize',
   seederStorageTableName: 'SequelizeData',
 };
-
 module.exports = {
   development: configs,
   test: configs,

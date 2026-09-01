@@ -6,6 +6,7 @@ import { ERROR_KEYS } from './common/error-keys';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  app.enableShutdownHooks();
   app.enableCors({ origin: process.env.ORIGIN ?? 'http://localhost:3000', credentials: true });
   app.useGlobalPipes(new ValidationPipe({
     exceptionFactory: (errors: ValidationError[]) => new BadRequestException({
@@ -14,6 +15,7 @@ async function bootstrap() {
     }),
   }));
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: [VERSION_NEUTRAL, '0.1'] });
+
   await app.listen(process.env.ERRORS_APP_PORT ?? 4974);
 }
 

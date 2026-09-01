@@ -145,6 +145,7 @@ Important values:
 - `DATABASE_PUBLISHED_PORT`: Host port for PostgreSQL
 - `APP_PORT`, `BACKEND_PORT`: Backend container and host ports
 - `ERRORS_APP_PORT`, `ERRORS_SERVICE_PORT`: Ingestion container and host ports
+- `KAFKA_ERROR_TOPIC`, `KAFKA_CONSUMER_GROUP`, `KAFKA_BATCH_MIN_BYTES`, `KAFKA_BATCH_MAX_BYTES`, `KAFKA_BATCH_MAX_WAIT_MS`: ingestion queue and database batch settings
 - `FRONTEND_PORT`: Frontend host port
 - `ORIGIN`: Frontend URL allowed by backend CORS
 - `NEXT_PUBLIC_API_BASE_URL`: Backend URL used by the frontend

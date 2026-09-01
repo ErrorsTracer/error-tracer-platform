@@ -2,15 +2,13 @@ import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { Application } from '../database/models/application.model';
 import { Environment } from '../database/models/environment.model';
-import { ErrorEvent } from '../database/models/error-event.model';
-import { TransactionService } from '../database/transaction.service';
-import { UsageRepository } from '../usage/usage.repository';
+import { KafkaModule } from '../kafka/kafka.module';
 import { ErrorsController } from './errors.controller';
 import { ErrorsService } from './errors.service';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Application, Environment, ErrorEvent])],
+  imports: [SequelizeModule.forFeature([Application, Environment]), KafkaModule],
   controllers: [ErrorsController],
-  providers: [ErrorsService, UsageRepository, TransactionService],
+  providers: [ErrorsService],
 })
 export class ErrorsModule {}

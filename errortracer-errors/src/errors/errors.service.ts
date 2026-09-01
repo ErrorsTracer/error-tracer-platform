@@ -1,21 +1,18 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { randomUUID } from 'crypto';
 import { Application } from '../database/models/application.model';
 import { Environment } from '../database/models/environment.model';
-import { ErrorEvent } from '../database/models/error-event.model';
-import { TransactionService } from '../database/transaction.service';
-import { UsageRepository } from '../usage/usage.repository';
 import { ERROR_KEYS } from '../common/error-keys';
+import { ErrorEventsPublisher } from '../kafka/error-events.publisher';
 import { IngestErrorDto } from './errors.dto';
 import { generateErrorFingerprint, sanitizeValue } from './errors.utils';
 
 @Injectable()
 export class ErrorsService {
   constructor(
-    @InjectModel(ErrorEvent) private readonly errors: typeof ErrorEvent,
     @InjectModel(Environment) private readonly environments: typeof Environment,
-    private readonly usage: UsageRepository,
-    private readonly transactions: TransactionService,
+    private readonly publisher: ErrorEventsPublisher,
   ) {}
 
   async ingest(data: IngestErrorDto, ingestionKey?: string, rawBody?: Buffer) {
@@ -31,22 +28,25 @@ export class ErrorsService {
     const fingerprint = data.fingerprint ?? generateErrorFingerprint({ ...data, message }, applicationId, environment);
     const payloadSize = rawBody?.length ?? Buffer.byteLength(JSON.stringify(data), 'utf8');
 
-    const event = await this.transactions.run(async (transaction) => {
-      const saved = await this.errors.create({
-        applicationId, error: message, stack: data.stack ?? null, environment,
-        framework: data.framework ?? null, language: data.language ?? null,
-        runtime: data.runtime ?? null, level: data.level ?? 'error', name: data.name ?? null,
-        fingerprint, handled: data.handled ?? null,
-        timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
-        release: data.release ?? null, url: data.url ?? null, transaction: data.transaction ?? null,
-        user: sanitizeValue(data.user), request: sanitizeValue(data.request), tags: sanitizeValue(data.tags),
-        extra: sanitizeValue({ ...(data.extra ?? {}), ...(data.serverName ? { serverName: data.serverName } : {}) }),
-        breadcrumbs: sanitizeValue(data.breadcrumbs), contexts: sanitizeValue(data.contexts),
-        href: data.url ?? null, client: data.framework ?? null, additionalData: null,
-      } as any, { transaction });
-      await this.usage.increment({ applicationId, userId: credential.application.ownerId, errorBytes: payloadSize }, transaction);
-      return saved;
+    const id = randomUUID();
+    await this.publisher.publish({
+      id,
+      applicationId, error: message, stack: data.stack ?? null, environment,
+      framework: data.framework ?? null, language: data.language ?? null,
+      runtime: data.runtime ?? null, level: data.level ?? 'error', name: data.name ?? null,
+      fingerprint, handled: data.handled ?? null,
+      timestamp: data.timestamp ? new Date(data.timestamp).toISOString() : new Date().toISOString(),
+      release: data.release ?? null, url: data.url ?? null, transaction: data.transaction ?? null,
+      user: data.user ? sanitizeValue(data.user) as Record<string, unknown> : null,
+      request: data.request ? sanitizeValue(data.request) as Record<string, unknown> : null,
+      tags: data.tags ? sanitizeValue(data.tags) as Record<string, unknown> : null,
+      extra: sanitizeValue({ ...(data.extra ?? {}), ...(data.serverName ? { serverName: data.serverName } : {}) }) as Record<string, unknown>,
+      breadcrumbs: data.breadcrumbs ? sanitizeValue(data.breadcrumbs) as Record<string, unknown>[] : null,
+      contexts: data.contexts ? sanitizeValue(data.contexts) as Record<string, unknown> : null,
+      href: data.url ?? null, client: data.framework ?? null, additionalData: null,
+      ownerId: credential.application.ownerId,
+      payloadSize,
     });
-    return { id: event.id, status: 'accepted' };
+    return { id, status: 'accepted' };
   }
 }
