@@ -83,6 +83,8 @@ export class Applications extends Model<Applications> {
   declare criticalErrors?: number;
   declare errorsCount?: number;
   declare criticalCount?: number;
+  declare warningCount?: number;
+  declare fatalCount?: number;
 
   // ======================
   // Relations

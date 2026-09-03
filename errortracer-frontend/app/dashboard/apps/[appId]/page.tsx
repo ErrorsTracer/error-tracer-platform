@@ -25,6 +25,8 @@ interface ApiApplication {
   membershipsCount?: number | string;
   errorsCount?: number | string;
   criticalCount?: number | string;
+  warningCount?: number | string;
+  fatalCount?: number | string;
   framework?: {
     name?: string | null;
   } | null;
@@ -45,6 +47,8 @@ interface AppViewModel {
   description: string;
   errorsCount: number;
   criticalCount: number;
+  warningCount: number;
+  fatalCount: number;
   status: string;
   key: string;
   productionMode: boolean;
@@ -352,7 +356,12 @@ function toAppViewModel(
     environment: app.environment?.envName ?? "unknown",
     description: app.about || "No description",
     errorsCount: Number(app.errorsCount ?? 0),
-    criticalCount: Number(app.criticalCount ?? 0),
+    criticalCount: Math.max(
+      0,
+      Number(app.criticalCount ?? 0) - Number(app.fatalCount ?? 0),
+    ),
+    warningCount: Number(app.warningCount ?? 0),
+    fatalCount: Number(app.fatalCount ?? 0),
     status: app.status,
     key: credentials?.appKey ?? "",
     productionMode:

@@ -502,6 +502,8 @@ export class ApplicationsRepository {
     application.setDataValue('membershipsCount', counts.membershipsCount);
     application.setDataValue('errorsCount', counts.errorsCount);
     application.setDataValue('criticalCount', counts.criticalCount);
+    application.setDataValue('warningCount', counts.warningCount);
+    application.setDataValue('fatalCount', counts.fatalCount);
 
     return application;
   }
@@ -1016,7 +1018,13 @@ export class ApplicationsRepository {
   }
 
   private async getApplicationOverviewCounts(applicationId: string) {
-    const [membershipsCount, errorsCount, criticalCount] = await Promise.all([
+    const [
+      membershipsCount,
+      errorsCount,
+      criticalCount,
+      warningCount,
+      fatalCount,
+    ] = await Promise.all([
       this.appMembershipRepository.count({
         where: {
           applicationId,
@@ -1030,8 +1038,20 @@ export class ApplicationsRepository {
           level: { [Op.in]: ['fatal', 'critical'] },
         },
       }),
+      this.errorsRepository.count({
+        where: { applicationId, level: 'warning' },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId, level: 'fatal' },
+      }),
     ]);
 
-    return { membershipsCount, errorsCount, criticalCount };
+    return {
+      membershipsCount,
+      errorsCount,
+      criticalCount,
+      warningCount,
+      fatalCount,
+    };
   }
 }

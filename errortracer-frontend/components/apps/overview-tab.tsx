@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Bug,
-  CheckCircle2,
+  Flame,
   HardDrive,
   Loader2,
   RefreshCw,
+  ShieldAlert,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { ErrorTrendChart } from "@/components/dashboard/error-trend-chart";
@@ -31,6 +32,8 @@ interface AppOverviewTabProps {
     name: string;
     errorsCount: number;
     criticalCount: number;
+    warningCount: number;
+    fatalCount: number;
   };
 }
 
@@ -40,18 +43,21 @@ interface ApplicationUsage {
 }
 
 export function AppOverviewTab({ app }: AppOverviewTabProps) {
-  const resolved = Math.floor(app.errorsCount * 0.35);
-
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard title="Total Errors" value={app.errorsCount} icon={Bug} />
         <StatCard
           title="Critical"
           value={app.criticalCount}
+          icon={ShieldAlert}
+        />
+        <StatCard
+          title="Warning"
+          value={app.warningCount}
           icon={AlertTriangle}
         />
-        <StatCard title="Resolved" value={resolved} icon={CheckCircle2} />
+        <StatCard title="Fatal" value={app.fatalCount} icon={Flame} />
         <ApplicationUsageCard appId={app.id} />
       </div>
 
