@@ -8,7 +8,12 @@ import { apiFetch } from "@/lib/api-client";
 import { formatCount } from "@/lib/utils";
 
 interface SeverityDistributionResponse {
-  criticalErrorsCount: number;
+  errorCount: number;
+  criticalCount: number;
+  warningCount: number;
+  fatalCount: number;
+  debugCount: number;
+  infoCount: number;
   totalErrorsCount: number;
 }
 
@@ -75,15 +80,37 @@ export function SeverityDistribution() {
     };
   }, []);
 
-  const criticalErrorsCount = distribution?.criticalErrorsCount ?? 0;
-  const totalErrorsCount = distribution?.totalErrorsCount ?? 0;
-  const otherErrorsCount = Math.max(
-    0,
-    totalErrorsCount - criticalErrorsCount,
-  );
   const data = [
-    { name: "Critical", value: criticalErrorsCount, color: "#ef4444" },
-    { name: "Error", value: otherErrorsCount, color: "#f97316" },
+    {
+      name: "Error",
+      value: distribution?.errorCount ?? 0,
+      color: "#f97316",
+    },
+    {
+      name: "Critical",
+      value: distribution?.criticalCount ?? 0,
+      color: "#ef4444",
+    },
+    {
+      name: "Warning",
+      value: distribution?.warningCount ?? 0,
+      color: "#eab308",
+    },
+    {
+      name: "Fatal",
+      value: distribution?.fatalCount ?? 0,
+      color: "#be123c",
+    },
+    {
+      name: "Debug",
+      value: distribution?.debugCount ?? 0,
+      color: "#8b5cf6",
+    },
+    {
+      name: "Info",
+      value: distribution?.infoCount ?? 0,
+      color: "#06b6d4",
+    },
   ];
 
   return (
@@ -129,7 +156,7 @@ export function SeverityDistribution() {
               <Tooltip content={<CustomTooltip />} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="flex flex-col gap-2.5">
+          <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2.5">
             {data.map((item) => (
               <div key={item.name} className="flex items-center gap-2">
                 <span

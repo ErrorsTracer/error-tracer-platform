@@ -449,17 +449,49 @@ export class ApplicationsRepository {
 
     if (applicationIds.length === 0) {
       return {
+        errorCount: 0,
+        criticalCount: 0,
         criticalErrorsCount: 0,
+        warningCount: 0,
+        fatalCount: 0,
+        debugCount: 0,
+        infoCount: 0,
         totalErrorsCount: 0,
       };
     }
 
-    const [criticalErrorsCount, totalErrorsCount] = await Promise.all([
+    const [
+      errorCount,
+      criticalCount,
+      warningCount,
+      fatalCount,
+      debugCount,
+      infoCount,
+      totalErrorsCount,
+    ] = await Promise.all([
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds }, level: 'error' },
+      }),
       this.errorsRepository.count({
         where: {
           applicationId: { [Op.in]: applicationIds },
-          level: { [Op.in]: ['fatal', 'critical'] },
+          level: 'critical',
         },
+      }),
+      this.errorsRepository.count({
+        where: {
+          applicationId: { [Op.in]: applicationIds },
+          level: 'warning',
+        },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds }, level: 'fatal' },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds }, level: 'debug' },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds }, level: 'info' },
       }),
       this.errorsRepository.count({
         where: { applicationId: { [Op.in]: applicationIds } },
@@ -467,7 +499,13 @@ export class ApplicationsRepository {
     ]);
 
     return {
-      criticalErrorsCount,
+      errorCount,
+      criticalCount,
+      criticalErrorsCount: criticalCount + fatalCount,
+      warningCount,
+      fatalCount,
+      debugCount,
+      infoCount,
       totalErrorsCount,
     };
   }

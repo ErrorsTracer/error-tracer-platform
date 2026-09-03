@@ -725,7 +725,13 @@ describe('Applications API (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body).toEqual({
+          errorCount: 0,
+          criticalCount: 0,
           criticalErrorsCount: 0,
+          warningCount: 0,
+          fatalCount: 0,
+          debugCount: 0,
+          infoCount: 0,
           totalErrorsCount: 0,
         });
       });
@@ -736,7 +742,13 @@ describe('Applications API (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body).toEqual({
+          errorCount: 5,
+          criticalCount: 1,
           criticalErrorsCount: 2,
+          warningCount: 2,
+          fatalCount: 1,
+          debugCount: 0,
+          infoCount: 0,
           totalErrorsCount: 9,
         });
       });
