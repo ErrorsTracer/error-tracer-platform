@@ -51,6 +51,11 @@ export class ApplicationsController {
     return await this.appService.getErrorsSeverityDistribution(req.user);
   }
 
+  @Get('/errors/live-rate')
+  async getLiveErrorRate(@Req() req: any) {
+    return await this.appService.getLiveErrorRate(req.user);
+  }
+
   @Get('/errors/report')
   async getMyApplicationsErrorsReport(@Req() req: any) {
     return await this.appService.getMyApplicationsErrorsReport(req.user);

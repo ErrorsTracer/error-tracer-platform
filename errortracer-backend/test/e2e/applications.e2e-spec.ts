@@ -754,6 +754,37 @@ describe('Applications API (e2e)', () => {
       });
 
     await request(context.httpServer)
+      .get('/v0.1/applications/errors/live-rate')
+      .expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/live-rate')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          generatedAt: expect.any(String),
+          windowMinutes: 30,
+          points: expect.any(Array),
+        });
+        expect(body.points).toHaveLength(30);
+        expect(
+          body.points.every(
+            (point: { timestamp: string; errors: number }) =>
+              typeof point.timestamp === 'string' &&
+              typeof point.errors === 'number',
+          ),
+        ).toBe(true);
+        expect(
+          body.points.reduce(
+            (total: number, point: { errors: number }) =>
+              total + point.errors,
+            0,
+          ),
+        ).toBe(9);
+      });
+
+    await request(context.httpServer)
       .delete(`/v0.1/applications/${application.id}`)
       .set(authHeader(member.accessToken))
       .expect(404);

@@ -24,6 +24,7 @@ import { UsageRepository } from '../usage/usage.repo';
 const DEFAULT_ERRORS_PAGE_LIMIT = 25;
 const MAX_ERRORS_PAGE_LIMIT = 100;
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const LIVE_RATE_WINDOW_MINUTES = 30;
 
 type ErrorPaginationCursor = {
   createdAt: string;
@@ -300,6 +301,36 @@ export class ApplicationsService {
     return await this.applicationsRepository.getErrorsSeverityDistributionByUserId(
       user.id,
     );
+  }
+
+  async getLiveErrorRate(user) {
+    const now = new Date();
+    now.setUTCSeconds(0, 0);
+    const windowStart = new Date(
+      now.getTime() - (LIVE_RATE_WINDOW_MINUTES - 1) * 60_000,
+    );
+    const counts =
+      await this.applicationsRepository.getLiveErrorRateByUserId(
+        user.id,
+        windowStart,
+      );
+    const countsByMinute = new Map(
+      counts.map((count) => [count.minute, count.errors]),
+    );
+
+    return {
+      generatedAt: new Date().toISOString(),
+      windowMinutes: LIVE_RATE_WINDOW_MINUTES,
+      points: Array.from({ length: LIVE_RATE_WINDOW_MINUTES }, (_, index) => {
+        const minute = new Date(windowStart.getTime() + index * 60_000);
+        const timestamp = minute.toISOString();
+
+        return {
+          timestamp,
+          errors: countsByMinute.get(timestamp) ?? 0,
+        };
+      }),
+    };
   }
 
   async updateProductionMode(params, user) {

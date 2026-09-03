@@ -15,6 +15,7 @@ import { ErrorTrendChart } from "@/components/dashboard/error-trend-chart";
 import { SeverityDistribution } from "@/components/dashboard/severity-distribution";
 import { RecentErrorsTable } from "@/components/dashboard/recent-errors-table";
 import { RecentApps } from "@/components/dashboard/recent-apps";
+import { LiveErrorRateChart } from "@/components/dashboard/live-error-rate-chart";
 import { CreateAppModal } from "@/components/dashboard/create-app-modal";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -65,6 +66,9 @@ export default function DashboardPage() {
 
         {/* Recent Apps */}
         <RecentApps />
+
+        {/* Live Error Rate */}
+        <LiveErrorRateChart />
 
         {/* Recent Errors Table */}
         <RecentErrorsTable />

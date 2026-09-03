@@ -187,6 +187,11 @@ type GroupedWeeklyErrorCount = {
   errors: number | string;
 };
 
+type LiveErrorRateRow = {
+  minute: Date | string;
+  errors: number | string;
+};
+
 @Injectable()
 export class ApplicationsRepository {
   constructor(
@@ -508,6 +513,34 @@ export class ApplicationsRepository {
       infoCount,
       totalErrorsCount,
     };
+  }
+
+  async getLiveErrorRateByUserId(userId: string, since: Date) {
+    const applicationIds = await this.getApplicationIdsForUser(userId);
+
+    if (applicationIds.length === 0) {
+      return [];
+    }
+
+    const minute = fn('date_trunc', 'minute', col('createdAt'));
+    const rows = (await this.errorsRepository.findAll({
+      attributes: [
+        [minute, 'minute'],
+        [fn('COUNT', col('id')), 'errors'],
+      ],
+      where: {
+        applicationId: { [Op.in]: applicationIds },
+        createdAt: { [Op.gte]: since },
+      },
+      group: [minute],
+      order: [[minute, 'ASC']],
+      raw: true,
+    })) as unknown as LiveErrorRateRow[];
+
+    return rows.map((row) => ({
+      minute: new Date(row.minute).toISOString(),
+      errors: Number(row.errors),
+    }));
   }
 
   async getAppByNameForUser({ name, userId }: GetAppByNameForUserData) {
