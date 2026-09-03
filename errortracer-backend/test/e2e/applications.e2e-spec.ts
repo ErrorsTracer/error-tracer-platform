@@ -725,7 +725,13 @@ describe('Applications API (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body).toEqual({
+          errorCount: 0,
+          criticalCount: 0,
           criticalErrorsCount: 0,
+          warningCount: 0,
+          fatalCount: 0,
+          debugCount: 0,
+          infoCount: 0,
           totalErrorsCount: 0,
         });
       });
@@ -736,9 +742,46 @@ describe('Applications API (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body).toEqual({
+          errorCount: 5,
+          criticalCount: 1,
           criticalErrorsCount: 2,
+          warningCount: 2,
+          fatalCount: 1,
+          debugCount: 0,
+          infoCount: 0,
           totalErrorsCount: 9,
         });
+      });
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/live-rate')
+      .expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/live-rate')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          generatedAt: expect.any(String),
+          windowMinutes: 30,
+          points: expect.any(Array),
+        });
+        expect(body.points).toHaveLength(30);
+        expect(
+          body.points.every(
+            (point: { timestamp: string; errors: number }) =>
+              typeof point.timestamp === 'string' &&
+              typeof point.errors === 'number',
+          ),
+        ).toBe(true);
+        expect(
+          body.points.reduce(
+            (total: number, point: { errors: number }) =>
+              total + point.errors,
+            0,
+          ),
+        ).toBe(9);
       });
 
     await request(context.httpServer)

@@ -36,6 +36,7 @@ interface ApiApplication {
   } | null;
   environment?: {
     envName?: string | null;
+    isEnabled?: boolean | null;
   } | null;
 }
 
@@ -260,6 +261,8 @@ function AppCard({ app }: { app: ApiApplication }) {
   const environmentName = app.environment?.envName ?? "unknown";
   const totalErrors = Number(app.totalErrors ?? 0);
   const criticalErrors = Number(app.criticalErrors ?? 0);
+  const displayedStatus =
+    app.environment?.isEnabled === false ? "inactive" : app.status;
 
   return (
     <Link
@@ -294,9 +297,14 @@ function AppCard({ app }: { app: ApiApplication }) {
         <span className="inline-flex rounded-md border border-border bg-secondary/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
           {environmentName}
         </span>
-        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
-          <span className="size-1.5 rounded-full bg-emerald-400" />
-          {app.status.toLowerCase()}
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
+            getApplicationStatusColor(displayedStatus),
+          )}
+        >
+          <span className="size-1.5 rounded-full bg-current" />
+          {displayedStatus.toLowerCase()}
         </span>
       </div>
 
@@ -323,4 +331,17 @@ function AppCard({ app }: { app: ApiApplication }) {
       </div>
     </Link>
   );
+}
+
+function getApplicationStatusColor(status: string) {
+  switch (status.toLowerCase()) {
+    case "active":
+      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
+    case "inactive":
+      return "border-red-500/30 bg-red-500/10 text-red-400";
+    case "suspended":
+      return "border-yellow-500/20 bg-yellow-500/10 text-yellow-400";
+    default:
+      return "border-border bg-secondary/50 text-muted-foreground";
+  }
 }

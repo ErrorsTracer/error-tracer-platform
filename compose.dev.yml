@@ -17,12 +17,27 @@ services:
     stdin_open: true
     tty: true
 
+  errors:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+    # The named node_modules volume survives image rebuilds. Synchronize it with
+    # the lockfile so newly added packages (such as KafkaJS) are always present.
+    command: ["sh", "-c", "bun install --frozen-lockfile && exec bun run start:dev"]
+    volumes:
+      - ./errortracer-errors:/usr/src/app
+      - errors_node_modules:/usr/src/app/node_modules
+    stdin_open: true
+    tty: true
+
   frontend:
     build:
       target: development
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4973}
+      NEXT_PUBLIC_TOTAL_STORAGE_GB: ${NEXT_PUBLIC_TOTAL_STORAGE_GB:-5}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     command: ["bun", "run", "dev", "--hostname", "0.0.0.0"]
@@ -35,6 +50,6 @@ services:
 
 volumes:
   backend_node_modules:
+  errors_node_modules:
   frontend_node_modules:
   frontend_next:
-

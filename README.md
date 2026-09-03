@@ -2,12 +2,13 @@
 
 ErrorTracer is a self-hosted, open-source error logging platform created by Elsiddig Ahmed. It helps teams capture, inspect, and manage application errors from one dashboard.
 
-If you prefer a hosted SaaS version so you do not have to manage servers, databases, updates, or deployments, visit [errortracer.io](https://errortracer.io).
+If you prefer a hosted SaaS version so you do not have to manage servers, databases, updates, or deployments, visit [stacklogger.io](https://stacklogger.io).
 
 ## Features
 
 - Self-hosted error logging dashboard
-- Backend API for authentication, applications, users, and error ingestion
+- Backend API for authentication, applications, and users
+- Dedicated error ingestion service
 - PostgreSQL persistence
 - Docker Compose setup for production and realtime development
 - Environment-based configuration from the root project `.env`
@@ -28,6 +29,7 @@ If you prefer a hosted SaaS version so you do not have to manage servers, databa
 ├── compose.dev.yml             # Development Docker Compose override
 ├── .env.example                # Example environment configuration
 ├── errortracer-backend/        # NestJS backend API
+├── errortracer-errors/         # NestJS error ingestion API
 └── errortracer-frontend/       # Next.js frontend dashboard
 ```
 
@@ -67,6 +69,7 @@ docker compose --env-file .env -f compose.yml up -d --build
 ```text
 Frontend: http://localhost:3000
 Backend:  http://localhost:4973
+Errors:   http://localhost:4974/v0.1/errors/ingest
 ```
 
 5. Stop the stack:
@@ -77,7 +80,7 @@ docker compose --env-file .env -f compose.yml down
 
 ## Development
 
-The development stack mounts the frontend and backend source folders into the containers and runs both apps in watch mode.
+The development stack mounts all application source folders into the containers and runs them in watch mode.
 
 Start development:
 
@@ -115,6 +118,7 @@ Restart one service:
 
 ```bash
 docker compose --env-file .env -f compose.yml restart backend
+docker compose --env-file .env -f compose.yml restart errors
 docker compose --env-file .env -f compose.yml restart frontend
 docker compose --env-file .env -f compose.yml restart database
 ```
@@ -138,11 +142,15 @@ All Docker Compose configuration is managed from the root `.env` file. The front
 Important values:
 
 - `DB_USER`, `DB_PASSWORD`, `DB_NAME`: PostgreSQL credentials
+- `RUN_DB_MIGRATIONS`, `RUN_DB_SEEDS`: automatically apply pending migrations and seeds before the backend starts (both default to `true`)
 - `DATABASE_PUBLISHED_PORT`: Host port for PostgreSQL
 - `APP_PORT`, `BACKEND_PORT`: Backend container and host ports
+- `ERRORS_APP_PORT`, `ERRORS_SERVICE_PORT`: Ingestion container and host ports
+- `KAFKA_ERROR_TOPIC`, `KAFKA_CONSUMER_GROUP`, `KAFKA_BATCH_MIN_BYTES`, `KAFKA_BATCH_MAX_BYTES`, `KAFKA_BATCH_MAX_WAIT_MS`: ingestion queue and database batch settings
 - `FRONTEND_PORT`: Frontend host port
 - `ORIGIN`: Frontend URL allowed by backend CORS
 - `NEXT_PUBLIC_API_BASE_URL`: Backend URL used by the frontend
+- `NEXT_PUBLIC_TOTAL_STORAGE_GB`: Total storage allowance, split equally between applications
 - `JWT_SECRET`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`: Auth secrets
 - `APP_KEY_GENERATOR`: Application key generation secret
 
@@ -173,4 +181,3 @@ Before deploying publicly:
 ## License
 
 This project is open-source. See [LICENSE](./LICENSE) for details.
-

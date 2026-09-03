@@ -187,6 +187,11 @@ type GroupedWeeklyErrorCount = {
   errors: number | string;
 };
 
+type LiveErrorRateRow = {
+  minute: Date | string;
+  errors: number | string;
+};
+
 @Injectable()
 export class ApplicationsRepository {
   constructor(
@@ -427,7 +432,11 @@ export class ApplicationsRepository {
         },
         include: [
           { model: Frameworks, attributes: ['name'] },
-          { model: Environments, as: 'environment', attributes: ['envName'] },
+          {
+            model: Environments,
+            as: 'environment',
+            attributes: ['envName', 'isEnabled'],
+          },
         ],
       });
 
@@ -449,17 +458,49 @@ export class ApplicationsRepository {
 
     if (applicationIds.length === 0) {
       return {
+        errorCount: 0,
+        criticalCount: 0,
         criticalErrorsCount: 0,
+        warningCount: 0,
+        fatalCount: 0,
+        debugCount: 0,
+        infoCount: 0,
         totalErrorsCount: 0,
       };
     }
 
-    const [criticalErrorsCount, totalErrorsCount] = await Promise.all([
+    const [
+      errorCount,
+      criticalCount,
+      warningCount,
+      fatalCount,
+      debugCount,
+      infoCount,
+      totalErrorsCount,
+    ] = await Promise.all([
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds }, level: 'error' },
+      }),
       this.errorsRepository.count({
         where: {
           applicationId: { [Op.in]: applicationIds },
-          level: { [Op.in]: ['fatal', 'critical'] },
+          level: 'critical',
         },
+      }),
+      this.errorsRepository.count({
+        where: {
+          applicationId: { [Op.in]: applicationIds },
+          level: 'warning',
+        },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds }, level: 'fatal' },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds }, level: 'debug' },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds }, level: 'info' },
       }),
       this.errorsRepository.count({
         where: { applicationId: { [Op.in]: applicationIds } },
@@ -467,9 +508,55 @@ export class ApplicationsRepository {
     ]);
 
     return {
-      criticalErrorsCount,
+      errorCount,
+      criticalCount,
+      criticalErrorsCount: criticalCount + fatalCount,
+      warningCount,
+      fatalCount,
+      debugCount,
+      infoCount,
       totalErrorsCount,
     };
+  }
+
+  async getLiveErrorRateByUserId(userId: string, since: Date) {
+    const applicationIds = await this.getApplicationIdsForUser(userId);
+
+    return await this.getLiveErrorRateByApplicationIds(applicationIds, since);
+  }
+
+  async getLiveErrorRateByApplicationId(applicationId: string, since: Date) {
+    return await this.getLiveErrorRateByApplicationIds([applicationId], since);
+  }
+
+  private async getLiveErrorRateByApplicationIds(
+    applicationIds: string[],
+    since: Date,
+  ) {
+
+    if (applicationIds.length === 0) {
+      return [];
+    }
+
+    const minute = fn('date_trunc', 'minute', col('createdAt'));
+    const rows = (await this.errorsRepository.findAll({
+      attributes: [
+        [minute, 'minute'],
+        [fn('COUNT', col('id')), 'errors'],
+      ],
+      where: {
+        applicationId: { [Op.in]: applicationIds },
+        createdAt: { [Op.gte]: since },
+      },
+      group: [minute],
+      order: [[minute, 'ASC']],
+      raw: true,
+    })) as unknown as LiveErrorRateRow[];
+
+    return rows.map((row) => ({
+      minute: new Date(row.minute).toISOString(),
+      errors: Number(row.errors),
+    }));
   }
 
   async getAppByNameForUser({ name, userId }: GetAppByNameForUserData) {
@@ -490,7 +577,11 @@ export class ApplicationsRepository {
         },
         include: [
           { model: Frameworks, attributes: ['name'] },
-          { model: Environments, as: 'environment', attributes: ['envName'] },
+          {
+            model: Environments,
+            as: 'environment',
+            attributes: ['envName', 'isEnabled'],
+          },
         ],
       });
 
@@ -502,6 +593,8 @@ export class ApplicationsRepository {
     application.setDataValue('membershipsCount', counts.membershipsCount);
     application.setDataValue('errorsCount', counts.errorsCount);
     application.setDataValue('criticalCount', counts.criticalCount);
+    application.setDataValue('warningCount', counts.warningCount);
+    application.setDataValue('fatalCount', counts.fatalCount);
 
     return application;
   }
@@ -1016,7 +1109,13 @@ export class ApplicationsRepository {
   }
 
   private async getApplicationOverviewCounts(applicationId: string) {
-    const [membershipsCount, errorsCount, criticalCount] = await Promise.all([
+    const [
+      membershipsCount,
+      errorsCount,
+      criticalCount,
+      warningCount,
+      fatalCount,
+    ] = await Promise.all([
       this.appMembershipRepository.count({
         where: {
           applicationId,
@@ -1030,8 +1129,20 @@ export class ApplicationsRepository {
           level: { [Op.in]: ['fatal', 'critical'] },
         },
       }),
+      this.errorsRepository.count({
+        where: { applicationId, level: 'warning' },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId, level: 'fatal' },
+      }),
     ]);
 
-    return { membershipsCount, errorsCount, criticalCount };
+    return {
+      membershipsCount,
+      errorsCount,
+      criticalCount,
+      warningCount,
+      fatalCount,
+    };
   }
 }

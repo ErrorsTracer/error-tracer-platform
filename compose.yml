@@ -38,6 +38,10 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
+      # The production entrypoint initializes a fresh database before Nest starts.
+      # SequelizeMeta/SequelizeData make both operations safe on later restarts.
+      RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+      RUN_DB_SEEDS: ${RUN_DB_SEEDS:-true}
       APP_PORT: ${APP_PORT:-4973}
       ORIGIN: ${ORIGIN:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -55,6 +59,66 @@ services:
     networks:
       - errortracer
 
+  errors:
+    build:
+      context: ./errortracer-errors
+      dockerfile: dockerfile
+      target: production
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      ERRORS_APP_PORT: ${ERRORS_APP_PORT:-4974}
+      ORIGIN: ${ORIGIN:-http://localhost:3000}
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_ERROR_TOPIC: ${KAFKA_ERROR_TOPIC:-errortracer.error-events.v1}
+      KAFKA_NUM_PARTITIONS: ${KAFKA_NUM_PARTITIONS:-3}
+      KAFKA_REPLICATION_FACTOR: 1
+      KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:-errortracer-error-writers-v1}
+      KAFKA_BATCH_MIN_BYTES: ${KAFKA_BATCH_MIN_BYTES:-32768}
+      KAFKA_BATCH_MAX_BYTES: ${KAFKA_BATCH_MAX_BYTES:-1048576}
+      KAFKA_BATCH_MAX_WAIT_MS: ${KAFKA_BATCH_MAX_WAIT_MS:-1000}
+    ports:
+      - "${ERRORS_SERVICE_PORT:-4974}:${ERRORS_APP_PORT:-4974}"
+    depends_on:
+      database:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - errortracer
+
+  kafka:
+    image: apache/kafka:3.9.1
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: ${KAFKA_NUM_PARTITIONS:-3}
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - errortracer
+
   frontend:
     build:
       context: ./errortracer-frontend
@@ -62,10 +126,12 @@ services:
       target: production
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4973}
+        NEXT_PUBLIC_TOTAL_STORAGE_GB: ${NEXT_PUBLIC_TOTAL_STORAGE_GB:-5}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4973}
+      NEXT_PUBLIC_TOTAL_STORAGE_GB: ${NEXT_PUBLIC_TOTAL_STORAGE_GB:-5}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
@@ -77,6 +143,7 @@ services:
 
 volumes:
   postgres_data:
+  kafka_data:
 
 networks:
   errortracer:

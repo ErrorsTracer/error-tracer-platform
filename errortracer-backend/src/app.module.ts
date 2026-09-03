@@ -14,7 +14,6 @@ import { Errors } from './database/models/errors.model';
 import { Notifications } from './database/models/notifications.model';
 import { Usage } from './database/models/usage.model';
 
-import { ErrorsModule } from './modules/errors/errors.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -46,7 +45,6 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     UsersModule,
     ApplicationsModule,
-    ErrorsModule,
   ],
   controllers: [],
   providers: [],

@@ -1,0 +1,21 @@
+FROM oven/bun:1 AS base
+WORKDIR /usr/src/app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+
+FROM base AS development
+COPY . .
+CMD ["bun", "run", "start:dev"]
+
+FROM base AS builder
+COPY . .
+RUN bun run build
+
+FROM oven/bun:1 AS production
+WORKDIR /usr/src/app
+ENV NODE_ENV=production
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/package.json ./
+COPY --from=builder /usr/src/app/bun.lock ./
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+CMD ["bun", "run", "start:prod"]

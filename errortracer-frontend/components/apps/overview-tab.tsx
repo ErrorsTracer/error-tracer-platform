@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Bug,
-  CheckCircle2,
+  Flame,
   HardDrive,
   Loader2,
   RefreshCw,
+  ShieldAlert,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { ErrorTrendChart } from "@/components/dashboard/error-trend-chart";
+import { LiveErrorRateChart } from "@/components/dashboard/live-error-rate-chart";
 import { RecentErrorsTable } from "@/components/dashboard/recent-errors-table";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -19,9 +21,11 @@ import {
   fetchApplicationTopAffectedRoutes,
 } from "@/lib/application-errors";
 import { apiFetch } from "@/lib/api-client";
+import {
+  storageUsageColor,
+  TOTAL_STORAGE_BYTES,
+} from "@/lib/storage-config";
 import { formatCount } from "@/lib/utils";
-
-const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024;
 
 interface AppOverviewTabProps {
   app: {
@@ -29,6 +33,8 @@ interface AppOverviewTabProps {
     name: string;
     errorsCount: number;
     criticalCount: number;
+    warningCount: number;
+    fatalCount: number;
   };
 }
 
@@ -38,20 +44,26 @@ interface ApplicationUsage {
 }
 
 export function AppOverviewTab({ app }: AppOverviewTabProps) {
-  const resolved = Math.floor(app.errorsCount * 0.35);
-
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard title="Total Errors" value={app.errorsCount} icon={Bug} />
         <StatCard
           title="Critical"
           value={app.criticalCount}
+          icon={ShieldAlert}
+        />
+        <StatCard
+          title="Warning"
+          value={app.warningCount}
           icon={AlertTriangle}
         />
-        <StatCard title="Resolved" value={resolved} icon={CheckCircle2} />
+
+        <StatCard title="Fatal" value={app.fatalCount} icon={Flame} />
         <ApplicationUsageCard appId={app.id} />
       </div>
+
+      <LiveErrorRateChart appId={app.id} />
 
       <ErrorTrendChart appId={app.id} />
 
@@ -157,6 +169,7 @@ function TopAffectedRoutes({ appId }: { appId: string }) {
 
 function ApplicationUsageCard({ appId }: { appId: string }) {
   const [usage, setUsage] = useState<ApplicationUsage | null>(null);
+  const [appsCount, setAppsCount] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -165,12 +178,16 @@ function ApplicationUsageCard({ appId }: { appId: string }) {
     setError(null);
 
     try {
-      const data = await apiFetch<ApplicationUsage>(
-        `/v0.1/applications/${encodeURIComponent(appId)}/usage`,
-      );
+      const [data, applications] = await Promise.all([
+        apiFetch<ApplicationUsage>(
+          `/v0.1/applications/${encodeURIComponent(appId)}/usage`,
+        ),
+        apiFetch<unknown[]>("/v0.1/applications/"),
+      ]);
 
       if (shouldUpdate()) {
         setUsage(data);
+        setAppsCount(Math.max(1, applications.length));
       }
     } catch (error) {
       if (shouldUpdate()) {
@@ -196,9 +213,10 @@ function ApplicationUsageCard({ appId }: { appId: string }) {
   }, [appId]);
 
   const usedBytes = usage?.totalErrorBytes ?? 0;
+  const appStorageLimitBytes = TOTAL_STORAGE_BYTES / appsCount;
   const usedPercent = Math.min(
     100,
-    Math.round((usedBytes / STORAGE_LIMIT_BYTES) * 100),
+    Math.round((usedBytes / appStorageLimitBytes) * 100),
   );
 
   return (
@@ -231,11 +249,18 @@ function ApplicationUsageCard({ appId }: { appId: string }) {
         <>
           <p className="mt-2 font-mono text-lg font-semibold text-foreground">
             {formatStorage(usedBytes)}{" "}
-            <span className="text-sm text-muted-foreground">/ 5 GB</span>
+            <span className="text-sm text-muted-foreground">
+              / {formatStorage(appStorageLimitBytes)}
+            </span>
           </p>
-          <Progress value={usedPercent} className="mt-2 h-1.5" />
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            {usedPercent}% used
+          <Progress
+            value={usedPercent}
+            className="mt-2 h-1.5"
+            indicatorStyle={{ backgroundColor: storageUsageColor(usedPercent) }}
+          />
+          <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
+            {usedPercent}% used. Your total storage is split equally between all
+            your applications.
           </p>
         </>
       )}
