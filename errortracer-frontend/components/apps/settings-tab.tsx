@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 interface AppSettingsTabProps {
   app: {
@@ -104,7 +105,9 @@ export function AppSettingsTab({
       setProductionMode(nextValue);
       onProductionModeChange(nextValue);
       toast.success(
-        nextValue ? "Production mode enabled" : "Production mode disabled",
+        nextValue
+          ? "Application is now live"
+          : "Live error collection turned off",
       );
     } catch (error) {
       setProductionMode(previousValue);
@@ -112,7 +115,7 @@ export function AppSettingsTab({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to update production mode.",
+          : "Unable to update live error collection.",
       );
     } finally {
       setUpdatingProductionMode(false);
@@ -168,16 +171,32 @@ export function AppSettingsTab({
       </div>
 
       {/* Credentials */}
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div
+        className={cn(
+          "relative rounded-lg border border-border bg-card p-4",
+          !productionMode && "border-yellow-500/40",
+        )}
+      >
+        {!productionMode && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 animate-pulse rounded-lg ring-2 ring-yellow-500/50"
+          />
+        )}
         <h3 className="text-sm font-medium text-foreground">Credentials</h3>
         <p className="mb-4 text-xs text-muted-foreground">
-          Control how this application's ingestion credentials behave.
+          Control whether this application can send live errors.
         </p>
-        <div className="flex max-w-md items-center justify-between">
+        <div
+          className={cn(
+            "flex max-w-md items-center justify-between rounded-md",
+            !productionMode && "bg-yellow-500/5 p-3",
+          )}
+        >
           <div>
-            <p className="text-sm text-foreground">Production mode</p>
+            <p className="text-sm text-foreground">Go live</p>
             <p className="text-xs text-muted-foreground">
-              Toggle production ingestion mode for this application key.
+              Activate live error collection for this application.
             </p>
           </div>
           <Switch

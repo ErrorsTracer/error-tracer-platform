@@ -432,7 +432,11 @@ export class ApplicationsRepository {
         },
         include: [
           { model: Frameworks, attributes: ['name'] },
-          { model: Environments, as: 'environment', attributes: ['envName'] },
+          {
+            model: Environments,
+            as: 'environment',
+            attributes: ['envName', 'isEnabled'],
+          },
         ],
       });
 
@@ -573,7 +577,11 @@ export class ApplicationsRepository {
         },
         include: [
           { model: Frameworks, attributes: ['name'] },
-          { model: Environments, as: 'environment', attributes: ['envName'] },
+          {
+            model: Environments,
+            as: 'environment',
+            attributes: ['envName', 'isEnabled'],
+          },
         ],
       });
 

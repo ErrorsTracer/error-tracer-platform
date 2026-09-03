@@ -33,6 +33,7 @@ interface ApiApplication {
   environment?: {
     envName?: string | null;
     appKey?: string | null;
+    isEnabled?: boolean | null;
   } | null;
   membership?: {
     role?: string | null;
@@ -78,6 +79,7 @@ export default function AppDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isOwner = app?.membershipRole === "owner";
+  const displayedStatus = app?.productionMode ? app.status : "inactive";
   const activeTab =
     selectedTab === "settings" && !isOwner ? "overview" : selectedTab;
 
@@ -228,11 +230,11 @@ export default function AppDetailPage({
               <span
                 className={cn(
                   "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
-                  getStatusColor(app.status),
+                  getStatusColor(displayedStatus),
                 )}
               >
                 <span className="size-1.5 rounded-full bg-current" />
-                {app.status.toLowerCase()}
+                {displayedStatus.toLowerCase()}
               </span>
             </div>
             <p className="text-sm text-muted-foreground">{app.description}</p>
@@ -262,10 +264,10 @@ export default function AppDetailPage({
       {isOwner && !app.productionMode && (
         <Alert className="border-yellow-500/20 bg-yellow-500/5 text-yellow-500">
           <AlertTriangle className="size-4" />
-          <AlertTitle>Production mode is off</AlertTitle>
+          <AlertTitle>Live error collection is off</AlertTitle>
           <AlertDescription className="flex flex-col gap-3 text-yellow-500/90 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              Turn on production mode when this app is ready to collect live
+              Go live when this application is ready to start collecting
               errors.
             </span>
             <Button
@@ -275,7 +277,7 @@ export default function AppDetailPage({
               className="border-yellow-500/30 bg-transparent text-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400"
               asChild
             >
-              <Link href={`${pathname}?tab=settings`}>Open settings</Link>
+              <Link href={`${pathname}?tab=settings`}>Go live</Link>
             </Button>
           </AlertDescription>
         </Alert>
@@ -365,7 +367,10 @@ function toAppViewModel(
     status: app.status,
     key: credentials?.appKey ?? "",
     productionMode:
-      credentials?.isEnabled ?? credentials?.productionMode ?? false,
+      credentials?.isEnabled ??
+      credentials?.productionMode ??
+      app.environment?.isEnabled ??
+      false,
     membershipRole: app.membership?.role ?? null,
   };
 }
@@ -376,6 +381,8 @@ function getStatusColor(status: string) {
       return "border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
     case "suspended":
       return "border-yellow-500/20 bg-yellow-500/10 text-yellow-400";
+    case "inactive":
+      return "border-red-500/30 bg-red-500/10 text-red-400";
     default:
       return "border-border bg-secondary/50 text-muted-foreground";
   }
