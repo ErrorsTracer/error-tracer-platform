@@ -19,8 +19,11 @@ import { CreateAppModal } from "@/components/dashboard/create-app-modal";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { apiFetch } from "@/lib/api-client";
-
-const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
+import {
+  storageUsageColor,
+  TOTAL_STORAGE_BYTES,
+  TOTAL_STORAGE_GB,
+} from "@/lib/storage-config";
 
 interface UserUsage {
   totalErrorBytes: number;
@@ -282,7 +285,7 @@ function TotalApplicationUsageCard() {
   const usedBytes = usage?.totalErrorBytes ?? 0;
   const usedPercent = Math.min(
     100,
-    Math.round((usedBytes / STORAGE_LIMIT_BYTES) * 100),
+    Math.round((usedBytes / TOTAL_STORAGE_BYTES) * 100),
   );
 
   return (
@@ -315,11 +318,18 @@ function TotalApplicationUsageCard() {
         <>
           <p className="mt-2 font-mono text-lg font-semibold text-foreground">
             {formatStorage(usedBytes)}{" "}
-            <span className="text-sm text-muted-foreground">/ 5 GB</span>
+            <span className="text-sm text-muted-foreground">
+              / {TOTAL_STORAGE_GB} GB
+            </span>
           </p>
-          <Progress value={usedPercent} className="mt-2 h-1.5" />
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            {usedPercent}% used
+          <Progress
+            value={usedPercent}
+            className="mt-2 h-1.5"
+            indicatorStyle={{ backgroundColor: storageUsageColor(usedPercent) }}
+          />
+          <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
+            {usedPercent}% used. Your total storage is split equally between all
+            your applications.
           </p>
         </>
       )}

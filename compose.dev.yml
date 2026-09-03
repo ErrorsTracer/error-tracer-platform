@@ -37,6 +37,7 @@ services:
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4973}
+      NEXT_PUBLIC_TOTAL_STORAGE_GB: ${NEXT_PUBLIC_TOTAL_STORAGE_GB:-5}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     command: ["bun", "run", "dev", "--hostname", "0.0.0.0"]

@@ -150,6 +150,7 @@ Important values:
 - `FRONTEND_PORT`: Frontend host port
 - `ORIGIN`: Frontend URL allowed by backend CORS
 - `NEXT_PUBLIC_API_BASE_URL`: Backend URL used by the frontend
+- `NEXT_PUBLIC_TOTAL_STORAGE_GB`: Total storage allowance, split equally between applications
 - `JWT_SECRET`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`: Auth secrets
 - `APP_KEY_GENERATOR`: Application key generation secret
 

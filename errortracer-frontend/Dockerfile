@@ -15,6 +15,8 @@ FROM base AS builder
 
 ARG NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ARG NEXT_PUBLIC_TOTAL_STORAGE_GB
+ENV NEXT_PUBLIC_TOTAL_STORAGE_GB=${NEXT_PUBLIC_TOTAL_STORAGE_GB}
 
 COPY . .
 RUN bun run build
@@ -36,4 +38,3 @@ COPY --from=builder /usr/src/app/next.config.mjs ./next.config.mjs
 EXPOSE 3000
 
 CMD ["bun", "run", "start"]
-
