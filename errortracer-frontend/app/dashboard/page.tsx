@@ -67,7 +67,7 @@ export default function DashboardPage() {
         {/* Recent Apps */}
         <RecentApps />
 
-        {/* Live Error Rate */}
+        {/* Live Errors Trend */}
         <LiveErrorRateChart />
 
         {/* Recent Errors Table */}

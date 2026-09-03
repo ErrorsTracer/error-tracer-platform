@@ -54,7 +54,7 @@ export function LiveErrorRateChart({ appId }: { appId?: string }) {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "Unable to load the live error rate.",
+          : "Unable to load the Live Errors Trend.",
       );
     } finally {
       setLoading(false);
@@ -74,7 +74,7 @@ export function LiveErrorRateChart({ appId }: { appId?: string }) {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-medium text-foreground">
-              Live Error Rate
+              Live Errors Trend
             </h3>
             <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-emerald-400">
               <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
@@ -92,7 +92,7 @@ export function LiveErrorRateChart({ appId }: { appId?: string }) {
       {loading ? (
         <div className="flex h-[260px] items-center justify-center text-xs text-muted-foreground">
           <Loader2 className="mr-2 size-3.5 animate-spin" />
-          Loading live error rate...
+          Loading Live Errors Trend...
         </div>
       ) : error && data.length === 0 ? (
         <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
