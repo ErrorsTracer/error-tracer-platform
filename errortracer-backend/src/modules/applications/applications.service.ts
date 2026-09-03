@@ -304,16 +304,43 @@ export class ApplicationsService {
   }
 
   async getLiveErrorRate(user) {
+    return await this.buildLiveErrorRate((windowStart) =>
+      this.applicationsRepository.getLiveErrorRateByUserId(
+        user.id,
+        windowStart,
+      ),
+    );
+  }
+
+  async getApplicationLiveErrorRate(params, user) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    return await this.buildLiveErrorRate((windowStart) =>
+      this.applicationsRepository.getLiveErrorRateByApplicationId(
+        params.id,
+        windowStart,
+      ),
+    );
+  }
+
+  private async buildLiveErrorRate(
+    loadCounts: (
+      windowStart: Date,
+    ) => Promise<{ minute: string; errors: number }[]>,
+  ) {
     const now = new Date();
     now.setUTCSeconds(0, 0);
     const windowStart = new Date(
       now.getTime() - (LIVE_RATE_WINDOW_MINUTES - 1) * 60_000,
     );
-    const counts =
-      await this.applicationsRepository.getLiveErrorRateByUserId(
-        user.id,
-        windowStart,
-      );
+    const counts = await loadCounts(windowStart);
     const countsByMinute = new Map(
       counts.map((count) => [count.minute, count.errors]),
     );

@@ -29,7 +29,7 @@ interface ChartPoint {
   errors: number;
 }
 
-export function LiveErrorRateChart() {
+export function LiveErrorRateChart({ appId }: { appId?: string }) {
   const [data, setData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,9 @@ export function LiveErrorRateChart() {
 
     try {
       const response = await apiFetch<LiveErrorRateResponse>(
-        "/v0.1/applications/errors/live-rate",
+        appId
+          ? `/v0.1/applications/${encodeURIComponent(appId)}/errors/live-rate`
+          : "/v0.1/applications/errors/live-rate",
       );
       setData(
         response.points.map((point) => ({
@@ -57,7 +59,7 @@ export function LiveErrorRateChart() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [appId]);
 
   useEffect(() => {
     void loadRate(true);
@@ -80,7 +82,9 @@ export function LiveErrorRateChart() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Errors per minute across all applications · Last 30 minutes
+            Errors per minute{" "}
+            {appId ? "for this application" : "across all applications"} ·
+            Last 30 minutes
           </p>
         </div>
       </div>

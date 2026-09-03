@@ -112,6 +112,14 @@ export class ApplicationsController {
     return await this.appService.getApplicationErrorsReport(params, req.user);
   }
 
+  @Get('/:id/errors/live-rate')
+  async getApplicationLiveErrorRate(
+    @Param() params: any,
+    @Req() req: any,
+  ) {
+    return await this.appService.getApplicationLiveErrorRate(params, req.user);
+  }
+
   @Get('/:id/errors/top-affected-routes')
   async getTopAffectedRoutes(
     @Param() params: any,

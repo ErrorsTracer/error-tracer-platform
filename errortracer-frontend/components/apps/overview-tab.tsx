@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { ErrorTrendChart } from "@/components/dashboard/error-trend-chart";
+import { LiveErrorRateChart } from "@/components/dashboard/live-error-rate-chart";
 import { RecentErrorsTable } from "@/components/dashboard/recent-errors-table";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -57,9 +58,12 @@ export function AppOverviewTab({ app }: AppOverviewTabProps) {
           value={app.warningCount}
           icon={AlertTriangle}
         />
+
         <StatCard title="Fatal" value={app.fatalCount} icon={Flame} />
         <ApplicationUsageCard appId={app.id} />
       </div>
+
+      <LiveErrorRateChart appId={app.id} />
 
       <ErrorTrendChart appId={app.id} />
 

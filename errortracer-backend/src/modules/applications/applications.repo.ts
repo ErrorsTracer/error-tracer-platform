@@ -518,6 +518,18 @@ export class ApplicationsRepository {
   async getLiveErrorRateByUserId(userId: string, since: Date) {
     const applicationIds = await this.getApplicationIdsForUser(userId);
 
+    return await this.getLiveErrorRateByApplicationIds(applicationIds, since);
+  }
+
+  async getLiveErrorRateByApplicationId(applicationId: string, since: Date) {
+    return await this.getLiveErrorRateByApplicationIds([applicationId], since);
+  }
+
+  private async getLiveErrorRateByApplicationIds(
+    applicationIds: string[],
+    since: Date,
+  ) {
+
     if (applicationIds.length === 0) {
       return [];
     }
