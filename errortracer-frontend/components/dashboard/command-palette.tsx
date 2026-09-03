@@ -67,14 +67,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <AlertTriangle className="mr-2 size-4" />
             Critical Errors
           </CommandItem>
-          <CommandItem onSelect={() => navigate("/dashboard/reports")}>
-            <FileBarChart className="mr-2 size-4" />
-            Reports
-          </CommandItem>
-          <CommandItem onSelect={() => navigate("/dashboard/team")}>
-            <Users className="mr-2 size-4" />
-            Team
-          </CommandItem>
+           
           <CommandItem onSelect={() => navigate("/dashboard/invitations")}>
             <MailPlus className="mr-2 size-4" />
             Invitations
@@ -87,35 +80,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandSeparator />
 
-        <CommandGroup heading="Applications">
-          {mockApps.slice(0, 5).map((app) => (
-            <CommandItem
-              key={app.id}
-              onSelect={() => navigate(`/dashboard/apps/${app.id}`)}
-            >
-              <AppWindow className="mr-2 size-4" />
-              <span>{app.name}</span>
-              <span className="ml-auto text-xs text-muted-foreground">{app.framework}</span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-
-        <CommandSeparator />
-
-        <CommandGroup heading="Recent Errors">
-          {mockErrors.slice(0, 4).map((error) => (
-            <CommandItem
-              key={error.id}
-              onSelect={() =>
-                navigate(`/dashboard/errors/${error.id}?appId=${error.appId}`)
-              }
-            >
-              <Bug className="mr-2 size-4" />
-              <span className="truncate">{error.message}</span>
-              <span className="ml-auto text-xs text-muted-foreground">{error.appName}</span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
+        
       </CommandList>
     </CommandDialog>
   )
